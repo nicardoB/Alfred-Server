@@ -160,31 +160,32 @@ export function monitoringRoutes(emailNotifier = null) {
    */
   router.post('/email/test', async (req, res) => {
     try {
-      if (!emailNotifier) {
-        return res.status(400).json({
-          success: false,
-          error: 'Email notifier not available'
-        });
-      }
-
-      const result = await emailNotifier.sendTestEmail();
+      console.log('=== EMAIL TEST DIAGNOSTICS ===');
+      console.log('Environment variables check:');
+      console.log('SENDGRID_API_KEY exists:', !!process.env.SENDGRID_API_KEY);
+      console.log('EMAIL_TO exists:', !!process.env.EMAIL_TO);
+      console.log('EMAIL_TO value:', process.env.EMAIL_TO);
       
-      if (result) {
-        res.json({
-          success: true,
-          message: 'Test email sent successfully'
-        });
+      const success = await emailNotifier.sendTestEmail();
+      if (success) {
+        res.json({ success: true, message: 'Test email sent successfully' });
       } else {
-        res.status(500).json({
-          success: false,
-          error: 'Failed to send test email - check configuration'
+        res.json({ 
+          success: false, 
+          error: 'Failed to send test email - check configuration',
+          debug: {
+            hasApiKey: !!process.env.SENDGRID_API_KEY,
+            hasToEmail: !!process.env.EMAIL_TO,
+            toEmail: process.env.EMAIL_TO
+          }
         });
       }
     } catch (error) {
-      logger.error('Failed to send test email:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to send test email'
+      console.error('Email test error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message,
+        stack: error.stack
       });
     }
   });
