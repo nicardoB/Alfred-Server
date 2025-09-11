@@ -73,11 +73,11 @@ export function monitoringRoutes() {
    * POST /api/v1/monitoring/costs/reset
    * Reset cost statistics (optional provider filter)
    */
-  router.post('/costs/reset', (req, res) => {
+  router.post('/costs/reset', async (req, res) => {
     try {
       const { provider } = req.body;
       
-      costTracker.resetUsage(provider);
+      await costTracker.resetUsage(provider);
       
       res.json({
         success: true,

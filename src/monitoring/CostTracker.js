@@ -1,11 +1,18 @@
 import { logger } from '../utils/logger.js';
+import { promises as fs } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /**
  * Cost tracking system for AI provider usage
- * Tracks tokens, requests, and estimated costs per provider
+ * Tracks tokens, requests, and estimated costs per provider with persistent storage
  */
 export class CostTracker {
   constructor() {
+    this.dataFile = join(__dirname, '../../data/cost-tracking.json');
     this.usage = {
       claude: {
         requests: 0,
@@ -29,6 +36,9 @@ export class CostTracker {
         lastReset: new Date().toISOString()
       }
     };
+
+    // Load existing data on startup
+    this.loadData();
 
     // Pricing per 1K tokens (as of 2024)
     this.pricing = {
@@ -54,6 +64,49 @@ export class CostTracker {
   }
 
   /**
+   * Load cost data from persistent storage
+   */
+  async loadData() {
+    try {
+      // Ensure data directory exists
+      const dataDir = dirname(this.dataFile);
+      await fs.mkdir(dataDir, { recursive: true });
+
+      // Try to load existing data
+      const data = await fs.readFile(this.dataFile, 'utf8');
+      const savedUsage = JSON.parse(data);
+      
+      // Merge saved data with defaults
+      Object.keys(this.usage).forEach(provider => {
+        if (savedUsage[provider]) {
+          this.usage[provider] = { ...this.usage[provider], ...savedUsage[provider] };
+        }
+      });
+      
+      logger.info('Cost tracking data loaded from persistent storage');
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        logger.warn('Failed to load cost tracking data:', error.message);
+      }
+      // File doesn't exist or is corrupted, start fresh
+      await this.saveData();
+    }
+  }
+
+  /**
+   * Save cost data to persistent storage
+   */
+  async saveData() {
+    try {
+      const dataDir = dirname(this.dataFile);
+      await fs.mkdir(dataDir, { recursive: true });
+      await fs.writeFile(this.dataFile, JSON.stringify(this.usage, null, 2));
+    } catch (error) {
+      logger.error('Failed to save cost tracking data:', error);
+    }
+  }
+
+  /**
    * Track usage for a provider request
    */
   trackUsage(provider, inputTokens, outputTokens, model = null) {
@@ -72,6 +125,9 @@ export class CostTracker {
     usage.totalCost += cost;
 
     logger.info(`Cost tracking - ${provider}: +$${cost.toFixed(4)} (Total: $${usage.totalCost.toFixed(4)})`);
+    
+    // Save to persistent storage after each update
+    this.saveData().catch(err => logger.error('Failed to persist cost data:', err));
   }
 
   /**
@@ -144,7 +200,7 @@ export class CostTracker {
   /**
    * Reset usage statistics
    */
-  resetUsage(provider = null) {
+  async resetUsage(provider = null) {
     const resetData = {
       requests: 0,
       inputTokens: 0,
@@ -163,6 +219,9 @@ export class CostTracker {
       });
       logger.info('Cost tracking reset for all providers');
     }
+
+    // Save reset data to persistent storage
+    await this.saveData();
   }
 
   /**
