@@ -8,7 +8,7 @@ import { readFileSync } from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export function monitoringRoutes() {
+export function monitoringRoutes(emailNotifier = null) {
   const router = Router();
 
   /**
@@ -133,16 +133,91 @@ export function monitoringRoutes() {
 
   /**
    * GET /api/v1/monitoring/email/status
-   * Get email system status (placeholder for future implementation)
+   * Get email system status
    */
   router.get('/email/status', (req, res) => {
+    const isEnabled = emailNotifier && emailNotifier.isInitialized;
     res.json({
       success: true,
       data: {
-        status: 'disabled',
-        message: 'Email notifications temporarily disabled during deployment optimization'
+        status: isEnabled ? 'enabled' : 'disabled',
+        message: isEnabled 
+          ? 'Email notifications are active and monitoring cost thresholds'
+          : 'Email notifications disabled - check SendGrid API key and recipient email configuration',
+        thresholds: emailNotifier ? emailNotifier.thresholds : null
       }
     });
+  });
+
+  /**
+   * POST /api/v1/monitoring/email/test
+   * Send a test email to verify the system is working
+   */
+  router.post('/email/test', async (req, res) => {
+    try {
+      if (!emailNotifier) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email notifier not available'
+        });
+      }
+
+      const result = await emailNotifier.sendTestEmail();
+      
+      if (result) {
+        res.json({
+          success: true,
+          message: 'Test email sent successfully'
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to send test email - check configuration'
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to send test email:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to send test email'
+      });
+    }
+  });
+
+  /**
+   * POST /api/v1/monitoring/email/monthly-report
+   * Send monthly cost report immediately (for testing)
+   */
+  router.post('/email/monthly-report', async (req, res) => {
+    try {
+      if (!emailNotifier || !emailNotifier.isInitialized) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email notifier not initialized'
+        });
+      }
+
+      const costData = await costTracker.getUsageStats();
+      const result = await emailNotifier.sendMonthlyReport(costData);
+      
+      if (result) {
+        res.json({
+          success: true,
+          message: 'Monthly report sent successfully'
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to send monthly report'
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to send monthly report:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to send monthly report'
+      });
+    }
   });
 
   return router;

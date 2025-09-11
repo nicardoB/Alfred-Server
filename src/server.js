@@ -57,15 +57,27 @@ app.use(express.raw({ type: 'audio/*', limit: '10mb' }));
 // Initialize core services
 const sessionManager = new SessionManager();
 const smartAIRouter = new SmartAIRouter();
+import EmailNotifier from './monitoring/EmailNotifier.js';
+const emailNotifier = new EmailNotifier();
 
 // Setup database connection
 await setupDatabase();
 
+// Initialize email notifier
+await emailNotifier.initialize();
+
 // Setup routes with dependencies
-setupRoutes(app, { sessionManager, smartAIRouter });
+setupRoutes(app, { sessionManager, smartAIRouter, emailNotifier });
 
 // Setup WebSocket handling
 setupWebSocket(io, { sessionManager, smartAIRouter });
+
+// Start email threshold monitoring if enabled
+if (emailNotifier.isInitialized) {
+  const { costTracker } = await import('./monitoring/CostTracker.js');
+  await emailNotifier.startThresholdMonitoring(costTracker);
+  console.log('Email threshold monitoring started');
+}
 
 // Health check endpoint
 app.get('/health', (req, res) => {

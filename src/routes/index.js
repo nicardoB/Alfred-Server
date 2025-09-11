@@ -6,7 +6,7 @@ import { healthRoutes } from './health.js';
 import { monitoringRoutes } from './monitoring.js';
 
 export function setupRoutes(app, dependencies) {
-  const { sessionManager, smartAIRouter } = dependencies;
+  const { sessionManager, smartAIRouter, emailNotifier } = dependencies;
   
   // API versioning
   const apiV1 = Router();
@@ -16,7 +16,7 @@ export function setupRoutes(app, dependencies) {
   apiV1.use('/audio', audioRoutes(sessionManager, smartAIRouter));
   apiV1.use('/session', sessionRoutes(sessionManager));
   apiV1.use('/health', healthRoutes());
-  apiV1.use('/monitoring', monitoringRoutes());
+  apiV1.use('/monitoring', monitoringRoutes(emailNotifier));
   
   // Mount API version
   app.use('/api/v1', apiV1);
