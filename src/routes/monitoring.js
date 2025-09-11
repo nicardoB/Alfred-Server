@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { costTracker } from '../monitoring/CostTracker.js';
-import { emailNotifier } from '../monitoring/EmailNotifier.js';
 import { logger } from '../utils/logger.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -133,85 +132,17 @@ export function monitoringRoutes() {
   });
 
   /**
-   * POST /api/v1/monitoring/email/test
-   * Send a test email to verify email configuration
+   * GET /api/v1/monitoring/email/status
+   * Get email system status (placeholder for future implementation)
    */
-  router.post('/email/test', async (req, res) => {
-    try {
-      const success = await emailNotifier.sendEmail(
-        'Test Email - Configuration Check',
-        '<h1>✅ Email Configuration Working</h1><p>Your Alfred MCP email notifications are properly configured!</p>'
-      );
-      
-      res.json({
-        success,
-        message: success ? 'Test email sent successfully' : 'Failed to send test email'
-      });
-    } catch (error) {
-      logger.error('Test email failed:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to send test email'
-      });
-    }
-  });
-
-  /**
-   * POST /api/v1/monitoring/email/monthly-report
-   * Manually trigger monthly report email
-   */
-  router.post('/email/monthly-report', async (req, res) => {
-    try {
-      await emailNotifier.sendMonthlyReport();
-      res.json({
-        success: true,
-        message: 'Monthly report sent successfully'
-      });
-    } catch (error) {
-      logger.error('Monthly report failed:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to send monthly report'
-      });
-    }
-  });
-
-  /**
-   * GET /api/v1/monitoring/email/thresholds
-   * Get current cost thresholds
-   */
-  router.get('/email/thresholds', (req, res) => {
+  router.get('/email/status', (req, res) => {
     res.json({
       success: true,
       data: {
-        thresholds: emailNotifier.thresholds,
-        emailConfig: {
-          to: emailNotifier.emailConfig.to,
-          from: emailNotifier.emailConfig.from
-        },
-        lastAlerts: emailNotifier.lastAlerts
+        status: 'disabled',
+        message: 'Email notifications temporarily disabled during deployment optimization'
       }
     });
-  });
-
-  /**
-   * POST /api/v1/monitoring/email/check-thresholds
-   * Manually check and send threshold alerts if needed
-   */
-  router.post('/email/check-thresholds', async (req, res) => {
-    try {
-      await emailNotifier.checkThresholds();
-      res.json({
-        success: true,
-        message: 'Threshold check completed'
-      });
-    } catch (error) {
-      logger.error('Threshold check failed:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to check thresholds'
-      });
-    }
   });
 
   return router;
