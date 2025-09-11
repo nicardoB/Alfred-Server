@@ -1,4 +1,5 @@
 import { logger } from '../../utils/logger.js';
+import { costTracker } from '../../monitoring/CostTracker.js';
 
 export class ClaudeProvider {
   constructor() {
@@ -51,6 +52,11 @@ export class ClaudeProvider {
 
       const data = await response.json();
       const content = data.content?.[0]?.text || 'No response from Claude';
+      
+      // Track usage for cost monitoring
+      const inputTokens = data.usage?.input_tokens || costTracker.estimateTokens(text);
+      const outputTokens = data.usage?.output_tokens || costTracker.estimateTokens(content);
+      costTracker.trackUsage('claude', inputTokens, outputTokens, this.model);
       
       return {
         content,

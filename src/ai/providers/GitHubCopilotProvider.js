@@ -1,4 +1,5 @@
 import { logger } from '../../utils/logger.js';
+import { costTracker } from '../../monitoring/CostTracker.js';
 
 export class GitHubCopilotProvider {
   constructor() {
@@ -57,6 +58,11 @@ export class GitHubCopilotProvider {
 
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content || 'No response from GitHub Copilot';
+      
+      // Track usage for cost monitoring
+      const inputTokens = data.usage?.prompt_tokens || costTracker.estimateTokens(text);
+      const outputTokens = data.usage?.completion_tokens || costTracker.estimateTokens(content);
+      costTracker.trackUsage('copilot', inputTokens, outputTokens, this.model);
       
       return {
         content,

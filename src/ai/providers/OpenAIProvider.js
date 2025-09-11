@@ -1,4 +1,5 @@
 import { logger } from '../../utils/logger.js';
+import { costTracker } from '../../monitoring/CostTracker.js';
 
 export class OpenAIProvider {
   constructor() {
@@ -6,6 +7,13 @@ export class OpenAIProvider {
     this.apiKey = process.env.OPENAI_API_KEY;
     this.model = process.env.GPT_MODEL || 'gpt-4o-mini';
     this.baseUrl = 'https://api.openai.com/v1/chat/completions';
+    
+    // Debug logging for API key status
+    if (this.apiKey) {
+      logger.info(`OpenAI API key loaded: ${this.apiKey.substring(0, 15)}...`);
+    } else {
+      logger.warn('OpenAI API key not found in environment variables');
+    }
   }
 
   async processText(text, context) {
@@ -44,6 +52,11 @@ export class OpenAIProvider {
 
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content || 'No response from OpenAI';
+      
+      // Track usage for cost monitoring
+      const inputTokens = data.usage?.prompt_tokens || costTracker.estimateTokens(text);
+      const outputTokens = data.usage?.completion_tokens || costTracker.estimateTokens(content);
+      costTracker.trackUsage('openai', inputTokens, outputTokens, this.model);
       
       return {
         content,

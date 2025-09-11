@@ -1,0 +1,113 @@
+import { Router } from 'express';
+import { costTracker } from '../monitoring/CostTracker.js';
+import { logger } from '../utils/logger.js';
+
+export function monitoringRoutes() {
+  const router = Router();
+
+  /**
+   * GET /api/v1/monitoring/costs
+   * Get current cost statistics for all providers
+   */
+  router.get('/costs', (req, res) => {
+    try {
+      const stats = costTracker.getUsageStats();
+      res.json({
+        success: true,
+        data: stats
+      });
+    } catch (error) {
+      logger.error('Failed to get cost statistics:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve cost statistics'
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/monitoring/costs/projection
+   * Get cost projections for different time periods
+   */
+  router.get('/costs/projection', (req, res) => {
+    try {
+      const days = parseInt(req.query.days) || 30;
+      const projection = costTracker.getCostProjection(days);
+      
+      res.json({
+        success: true,
+        data: projection
+      });
+    } catch (error) {
+      logger.error('Failed to get cost projection:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to calculate cost projection'
+      });
+    }
+  });
+
+  /**
+   * POST /api/v1/monitoring/costs/reset
+   * Reset cost statistics (optional provider filter)
+   */
+  router.post('/costs/reset', (req, res) => {
+    try {
+      const { provider } = req.body;
+      
+      costTracker.resetUsage(provider);
+      
+      res.json({
+        success: true,
+        message: provider 
+          ? `Cost statistics reset for ${provider}` 
+          : 'Cost statistics reset for all providers'
+      });
+    } catch (error) {
+      logger.error('Failed to reset cost statistics:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to reset cost statistics'
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/monitoring/health
+   * Get server health and monitoring status
+   */
+  router.get('/health', (req, res) => {
+    try {
+      const stats = costTracker.getUsageStats();
+      
+      res.json({
+        success: true,
+        data: {
+          server: {
+            status: 'healthy',
+            uptime: process.uptime(),
+            memory: process.memoryUsage(),
+            timestamp: new Date().toISOString()
+          },
+          costs: {
+            totalCost: stats.summary.totalCost,
+            totalRequests: stats.summary.totalRequests,
+            providers: Object.keys(stats.providers).map(provider => ({
+              name: provider,
+              requests: stats.providers[provider].requests,
+              cost: stats.providers[provider].totalCost
+            }))
+          }
+        }
+      });
+    } catch (error) {
+      logger.error('Failed to get monitoring health:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve monitoring health'
+      });
+    }
+  });
+
+  return router;
+}
