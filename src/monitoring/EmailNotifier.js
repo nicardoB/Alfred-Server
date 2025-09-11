@@ -34,10 +34,21 @@ EmailNotifier.prototype.initialize = async function() {
   return true;
 };
 
-EmailNotifier.prototype.sendEmail = async function(to, subject, htmlContent, textContent) {
+EmailNotifier.prototype.sendEmail = async function(subject, textContent, htmlContent = null) {
   if (!this.isInitialized) {
     console.warn('Email notifier not initialized - skipping email');
     return false;
+  }
+
+  // Ensure we have valid content
+  if (!textContent || textContent.trim().length === 0) {
+    console.error('Email content cannot be empty');
+    return false;
+  }
+
+  // If no HTML content provided, use text content
+  if (!htmlContent) {
+    htmlContent = `<p>${textContent.replace(/\n/g, '<br>')}</p>`;
   }
 
   const emailData = {
@@ -56,11 +67,11 @@ EmailNotifier.prototype.sendEmail = async function(to, subject, htmlContent, tex
     content: [
       {
         type: 'text/plain',
-        value: textContent
+        value: textContent.trim()
       },
       {
         type: 'text/html',
-        value: htmlContent
+        value: htmlContent.trim()
       }
     ],
     custom_args: {
@@ -192,7 +203,7 @@ Recommended Actions:
 This is an automated alert from your Alfred AI Assistant cost monitoring system.
   `;
 
-  return await this.sendEmail(this.toEmail, subject, htmlContent, textContent);
+  return await this.sendEmail(subject, textContent, htmlContent);
 };
 
 EmailNotifier.prototype.checkThresholds = async function(costData) {
