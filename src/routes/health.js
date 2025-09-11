@@ -7,7 +7,7 @@ export function healthRoutes() {
     res.json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
-      version: '1.0.0',
+      version: '2.0.0-DEPLOYMENT-TEST',
       uptime: process.uptime()
     });
   });
