@@ -144,7 +144,12 @@ export function monitoringRoutes(emailNotifier = null) {
         message: isEnabled 
           ? 'Email notifications are active and monitoring cost thresholds'
           : 'Email notifications disabled - check SendGrid API key and recipient email configuration',
-        thresholds: emailNotifier ? emailNotifier.thresholds : null
+        thresholds: emailNotifier ? emailNotifier.thresholds : null,
+        debug: {
+          hasApiKey: !!(emailNotifier && emailNotifier.sendGridApiKey),
+          hasToEmail: !!(emailNotifier && emailNotifier.toEmail),
+          fromEmail: emailNotifier ? emailNotifier.fromEmail : null
+        }
       }
     });
   });
