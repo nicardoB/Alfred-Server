@@ -93,7 +93,7 @@ export function mcpRoutes(sessionManager, smartAIRouter) {
         success: true,
         sessionId,
         requestId,
-        content: aiResult.response?.response?.content || "No response",
+        content: aiResult.response?.content || "No response",
         confidence: aiResult.confidence || 0.9,
         provider: aiResult.provider || "unknown",
         timestamp: new Date().toISOString()
