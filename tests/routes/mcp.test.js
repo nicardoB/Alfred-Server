@@ -86,16 +86,17 @@ describe('MCP Routes', () => {
   });
 
   describe('POST /mcp/text', () => {
-    it('should process text command successfully', async () => {
+    it('should process text command successfully with simplified response format', async () => {
       const mockSession = { id: 'test-session-123' };
-      const mockResponse = {
+      const mockAIResponse = {
         provider: 'claude',
-        response: { content: 'Test response', confidence: 0.9 },
-        confidence: 0.9
+        response: { content: 'Test response from AI' },
+        confidence: 0.9,
+        processingTimeMs: 150
       };
 
       mockSessionManager.getSession.mockResolvedValue(mockSession);
-      mockSmartAIRouter.processTextCommand.mockResolvedValue(mockResponse);
+      mockSmartAIRouter.processTextCommand.mockResolvedValue(mockAIResponse);
 
       const response = await request(app)
         .post('/mcp/text')
@@ -107,8 +108,12 @@ describe('MCP Routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
+      expect(response.body.sessionId).toBe('test-session-123');
       expect(response.body.requestId).toBeDefined();
-      expect(response.body.response).toEqual(mockResponse);
+      expect(response.body.content).toBe('Test response from AI');
+      expect(response.body.confidence).toBe(0.9);
+      expect(response.body.provider).toBe('claude');
+      expect(response.body.timestamp).toBeDefined();
       expect(mockSmartAIRouter.processTextCommand).toHaveBeenCalledWith(
         'Hello Alfred',
         expect.objectContaining({
@@ -117,6 +122,72 @@ describe('MCP Routes', () => {
           metadata: { source: 'voice' }
         })
       );
+    });
+
+    it('should handle AI provider errors gracefully', async () => {
+      const mockSession = { id: 'test-session-123' };
+      mockSessionManager.getSession.mockResolvedValue(mockSession);
+      mockSmartAIRouter.processTextCommand.mockRejectedValue(new Error('AI provider timeout'));
+
+      const response = await request(app)
+        .post('/mcp/text')
+        .send({
+          sessionId: 'test-session-123',
+          text: 'Hello Alfred',
+          metadata: { source: 'voice' }
+        });
+
+      expect(response.status).toBe(500);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Failed to process text command');
+    });
+
+    it('should handle empty AI response content', async () => {
+      const mockSession = { id: 'test-session-123' };
+      const mockAIResponse = {
+        provider: 'claude',
+        response: { content: '' },
+        confidence: 0.5
+      };
+
+      mockSessionManager.getSession.mockResolvedValue(mockSession);
+      mockSmartAIRouter.processTextCommand.mockResolvedValue(mockAIResponse);
+
+      const response = await request(app)
+        .post('/mcp/text')
+        .send({
+          sessionId: 'test-session-123',
+          text: 'Hello Alfred'
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.content).toBe('');
+      expect(response.body.confidence).toBe(0.5);
+    });
+
+    it('should handle malformed AI response structure', async () => {
+      const mockSession = { id: 'test-session-123' };
+      const mockAIResponse = {
+        provider: 'claude',
+        // Missing response.content structure
+        confidence: 0.8
+      };
+
+      mockSessionManager.getSession.mockResolvedValue(mockSession);
+      mockSmartAIRouter.processTextCommand.mockResolvedValue(mockAIResponse);
+
+      const response = await request(app)
+        .post('/mcp/text')
+        .send({
+          sessionId: 'test-session-123',
+          text: 'Hello Alfred'
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.content).toBe('No response');
+      expect(response.body.confidence).toBe(0.8);
     });
 
     it('should require session ID and text', async () => {
