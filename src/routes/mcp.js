@@ -88,7 +88,7 @@ export function mcpRoutes(sessionManager, smartAIRouter) {
         metadata
       });
 
-      // Flatten the response structure for easier parsing
+      // Flatten the response structure for easier parsing - no nested objects
       res.json({
         success: true,
         sessionId,
