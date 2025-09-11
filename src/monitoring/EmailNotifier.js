@@ -14,6 +14,8 @@ function EmailNotifier() {
 
 EmailNotifier.prototype.initialize = async function() {
   console.log('Email initialization - SendGrid API key present:', !!this.sendGridApiKey);
+  console.log('Email initialization - API key length:', this.sendGridApiKey ? this.sendGridApiKey.length : 0);
+  console.log('Email initialization - API key starts with SG.:', this.sendGridApiKey ? this.sendGridApiKey.startsWith('SG.') : false);
   console.log('Email initialization - Recipient email present:', !!this.toEmail);
   console.log('Email initialization - From email:', this.fromEmail);
   
