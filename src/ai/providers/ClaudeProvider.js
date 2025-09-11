@@ -6,6 +6,13 @@ export class ClaudeProvider {
     this.apiKey = process.env.ANTHROPIC_API_KEY;
     this.model = process.env.CLAUDE_MODEL || 'claude-3-sonnet-20240229';
     this.baseUrl = 'https://api.anthropic.com/v1/messages';
+    
+    // Debug logging for API key status
+    if (this.apiKey) {
+      logger.info(`Claude API key loaded: ${this.apiKey.substring(0, 15)}...`);
+    } else {
+      logger.warn('Claude API key not found in environment variables');
+    }
   }
 
   async processText(text, context) {
