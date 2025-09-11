@@ -13,6 +13,10 @@ function EmailNotifier() {
 }
 
 EmailNotifier.prototype.initialize = async function() {
+  console.log('Email initialization - SendGrid API key present:', !!this.sendGridApiKey);
+  console.log('Email initialization - Recipient email present:', !!this.toEmail);
+  console.log('Email initialization - From email:', this.fromEmail);
+  
   if (!this.sendGridApiKey) {
     console.warn('SendGrid API key not configured - email notifications disabled');
     return false;
