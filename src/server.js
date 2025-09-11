@@ -9,11 +9,14 @@ import { dirname, join } from 'path';
 
 // Import our modules
 import { setupDatabase } from './config/database.js';
-import { setupRoutes } from './routes/index.js';
-import { setupWebSocket } from './websocket/handler.js';
-import { SmartAIRouter } from './ai/SmartAIRouter.js';
+import { mcpRoutes } from './routes/mcp.js';
+import { monitoringRoutes } from './routes/monitoring.js';
+import { indexRoutes } from './routes/index.js';
+import { emailNotifier } from './monitoring/EmailNotifier.js';
 import { SessionManager } from './session/SessionManager.js';
 import { logger } from './utils/logger.js';
+import { SmartAIRouter } from './ai/SmartAIRouter.js';
+import { setupWebSocket } from './websocket/handler.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -76,6 +79,11 @@ server.listen(PORT, () => {
   logger.info(`Alfred MCP Server running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV}`);
   logger.info(`WebSocket enabled for real-time communication`);
+  
+  // Initialize email notification system
+  emailNotifier.startThresholdMonitoring();
+  emailNotifier.scheduleMonthlyReport();
+  logger.info('Email notification system initialized');
 });
 
 // Graceful shutdown
