@@ -227,5 +227,47 @@ export function monitoringRoutes(emailNotifier = null) {
     }
   });
 
+  /**
+   * POST /api/v1/monitoring/costs/populate-test-data
+   * Populate test cost data for dashboard demonstration
+   */
+  router.post('/costs/populate-test-data', async (req, res) => {
+    try {
+      // Generate realistic test usage data
+      costTracker.trackUsage('claude', 1500, 800);  // ~$0.0165
+      costTracker.trackUsage('claude', 2200, 1200); // ~$0.0246
+      costTracker.trackUsage('claude', 800, 400);   // ~$0.0084
+      
+      costTracker.trackUsage('openai', 1200, 600);  // ~$0.0005 (gpt-4o-mini)
+      costTracker.trackUsage('openai', 1800, 900);  // ~$0.0008
+      costTracker.trackUsage('openai', 900, 450);   // ~$0.0004
+      
+      costTracker.trackUsage('copilot', 1000, 500); // ~$0.0060
+      costTracker.trackUsage('copilot', 1500, 750); // ~$0.0090
+      
+      const stats = costTracker.getUsageStats();
+      
+      res.json({
+        success: true,
+        message: 'Test cost data populated successfully',
+        data: {
+          totalCost: stats.summary.totalCost,
+          totalRequests: stats.summary.totalRequests,
+          providers: Object.keys(stats.providers).map(provider => ({
+            name: provider,
+            cost: stats.providers[provider].totalCost,
+            requests: stats.providers[provider].requests
+          }))
+        }
+      });
+    } catch (error) {
+      logger.error('Failed to populate test data:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to populate test data'
+      });
+    }
+  });
+
   return router;
 }
