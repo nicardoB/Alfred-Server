@@ -155,6 +155,58 @@ export function monitoringRoutes(emailNotifier = null) {
   });
 
   /**
+   * POST /api/v1/monitoring/email/sendgrid-test
+   * Send a direct SendGrid API test
+   */
+  router.post('/email/sendgrid-test', async (req, res) => {
+    const https = require('https');
+    
+    const postData = JSON.stringify({
+      personalizations: [{
+        to: [{ email: process.env.EMAIL_TO }]
+      }],
+      from: { email: process.env.EMAIL_TO },
+      subject: 'Direct SendGrid Test',
+      content: [{
+        type: 'text/plain',
+        value: 'This is a direct SendGrid API test'
+      }]
+    });
+
+    const options = {
+      hostname: 'api.sendgrid.com',
+      port: 443,
+      path: '/v3/mail/send',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData)
+      }
+    };
+
+    const req_sg = https.request(options, (response) => {
+      let data = '';
+      response.on('data', (chunk) => { data += chunk; });
+      response.on('end', () => {
+        res.json({
+          status: response.statusCode,
+          headers: response.headers,
+          body: data,
+          success: response.statusCode >= 200 && response.statusCode < 300
+        });
+      });
+    });
+
+    req_sg.on('error', (error) => {
+      res.json({ error: error.message, success: false });
+    });
+
+    req_sg.write(postData);
+    req_sg.end();
+  });
+
+  /**
    * POST /api/v1/monitoring/email/test
    * Send a test email to verify the system is working
    */
