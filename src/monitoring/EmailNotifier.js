@@ -79,12 +79,22 @@ EmailNotifier.prototype.sendEmail = async function(to, subject, htmlContent, tex
       });
       
       res.on('end', () => {
+        console.log('SendGrid Response Status:', res.statusCode);
+        console.log('SendGrid Response Body:', data);
+        console.log('SendGrid Response Headers:', res.headers);
+        
         if (res.statusCode >= 200 && res.statusCode < 300) {
           console.log('Email sent successfully:', subject);
           resolve(true);
         } else {
-          console.error('Failed to send email:', res.statusCode, data);
-          console.error('SendGrid response headers:', res.headers);
+          console.error('SendGrid API Error - Status:', res.statusCode);
+          console.error('SendGrid API Error - Body:', data);
+          try {
+            const errorData = JSON.parse(data);
+            console.error('Parsed SendGrid Error:', errorData);
+          } catch (e) {
+            console.error('Could not parse SendGrid error response');
+          }
           resolve(false);
         }
       });
