@@ -2,7 +2,7 @@ import https from 'https';
 
 function EmailNotifier() {
   this.sendGridApiKey = process.env.SENDGRID_API_KEY;
-  this.fromEmail = process.env.EMAIL_FROM || 'alfred@alfred-server-production.up.railway.app';
+  this.fromEmail = process.env.EMAIL_FROM || 'alfred@example.com';
   this.toEmail = process.env.EMAIL_TO;
   this.thresholds = {
     daily: parseFloat(process.env.DAILY_COST_THRESHOLD) || 5.0,
