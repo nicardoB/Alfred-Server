@@ -103,21 +103,20 @@ EmailNotifier.prototype.sendEmail = async function(to, subject, htmlContent, tex
 
 EmailNotifier.prototype.sendTestEmail = async function() {
   if (!this.isInitialized) {
-    await this.initialize();
+    console.error('EmailNotifier not initialized');
+    return false;
   }
 
-  const subject = '✅ Alfred Email System Test';
-  const htmlContent = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #28a745;">✅ Email System Working!</h2>
-      <p>This is a test email to verify that the Alfred email notification system is working correctly.</p>
-      <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
-      <p>If you received this email, the Railway-compatible email system is functioning properly.</p>
-    </div>
-  `;
-  const textContent = `✅ ALFRED EMAIL SYSTEM TEST\n\nThis is a test email to verify that the Alfred email notification system is working correctly.\n\nTimestamp: ${new Date().toISOString()}\n\nIf you received this email, the Railway-compatible email system is functioning properly.`;
+  console.log('Sending test email with config:', {
+    hasApiKey: !!this.sendGridApiKey,
+    hasToEmail: !!this.toEmail,
+    fromEmail: this.fromEmail
+  });
 
-  return await this.sendEmail(this.toEmail, subject, htmlContent, textContent);
+  const subject = 'Alfred Test Email';
+  const body = 'This is a simple test email from Alfred cost monitoring system.';
+
+  return await this.sendEmail(subject, body);
 };
 
 EmailNotifier.prototype.sendCostAlert = async function(type, currentCost, threshold, period) {
