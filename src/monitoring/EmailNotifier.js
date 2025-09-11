@@ -2,7 +2,7 @@ import https from 'https';
 
 function EmailNotifier() {
   this.sendGridApiKey = process.env.SENDGRID_API_KEY;
-  this.fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_TO || 'alfred@yourdomain.com';
+  this.fromEmail = process.env.EMAIL_FROM || 'alfred@alfred-server-production.up.railway.app';
   this.toEmail = process.env.EMAIL_TO;
   this.thresholds = {
     daily: parseFloat(process.env.DAILY_COST_THRESHOLD) || 5.0,
@@ -40,10 +40,17 @@ EmailNotifier.prototype.sendEmail = async function(to, subject, htmlContent, tex
 
   const emailData = {
     personalizations: [{
-      to: [{ email: to }],
-      subject: subject
+      to: [{ email: this.toEmail }]
     }],
-    from: { email: this.fromEmail },
+    from: { 
+      email: this.fromEmail,
+      name: "Alfred MCP Server"
+    },
+    reply_to: {
+      email: this.fromEmail,
+      name: "Alfred Support"
+    },
+    subject: subject,
     content: [
       {
         type: 'text/plain',
@@ -53,7 +60,12 @@ EmailNotifier.prototype.sendEmail = async function(to, subject, htmlContent, tex
         type: 'text/html',
         value: htmlContent
       }
-    ]
+    ],
+    custom_args: {
+      service: "alfred-mcp-server",
+      type: "cost-monitoring"
+    },
+    categories: ["cost-alert", "monitoring"]
   };
 
   return new Promise((resolve, reject) => {
