@@ -4,7 +4,7 @@ export class ClaudeProvider {
   constructor() {
     this.name = 'claude';
     this.apiKey = process.env.ANTHROPIC_API_KEY;
-    this.model = process.env.CLAUDE_MODEL || 'claude-3-sonnet-20240229';
+    this.model = process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
     this.baseUrl = 'https://api.anthropic.com/v1/messages';
     
     // Debug logging for API key status
