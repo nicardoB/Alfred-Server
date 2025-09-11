@@ -82,16 +82,20 @@ export function mcpRoutes(sessionManager, smartAIRouter) {
       const requestId = uuidv4();
       
       // Process text command through Smart AI Router
-      const response = await smartAIRouter.processTextCommand(text, {
+      const aiResult = await smartAIRouter.processTextCommand(text, {
         sessionId,
         requestId,
         metadata
       });
 
+      // Flatten the response structure for easier parsing
       res.json({
         success: true,
+        sessionId,
         requestId,
-        response,
+        content: aiResult.response?.content || aiResult.response || "No response",
+        confidence: aiResult.confidence || 0.9,
+        provider: aiResult.provider || "unknown",
         timestamp: new Date().toISOString()
       });
 
