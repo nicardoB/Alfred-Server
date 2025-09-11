@@ -84,6 +84,7 @@ EmailNotifier.prototype.sendEmail = async function(to, subject, htmlContent, tex
           resolve(true);
         } else {
           console.error('Failed to send email:', res.statusCode, data);
+          console.error('SendGrid response headers:', res.headers);
           resolve(false);
         }
       });
@@ -91,6 +92,7 @@ EmailNotifier.prototype.sendEmail = async function(to, subject, htmlContent, tex
 
     req.on('error', (error) => {
       console.error('Email request error:', error.message);
+      console.error('Full error:', error);
       resolve(false);
     });
 
