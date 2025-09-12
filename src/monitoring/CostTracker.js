@@ -14,8 +14,14 @@ export class CostTracker {
     // Pricing per 1K tokens (as of 2024)
     this.pricing = {
       claude: {
-        input: 0.003,   // $3 per 1M tokens
-        output: 0.015   // $15 per 1M tokens
+        'claude-3-5-sonnet-20241022': {
+          input: 0.003,   // $3 per 1M tokens
+          output: 0.015   // $15 per 1M tokens
+        },
+        'claude-3-5-haiku-20241022': {
+          input: 0.00025, // $0.25 per 1M tokens
+          output: 0.00125 // $1.25 per 1M tokens
+        }
       },
       openai: {
         'gpt-4o-mini': {
@@ -59,10 +65,10 @@ export class CostTracker {
   /**
    * Track usage for a provider request
    */
-  async trackUsage(provider, inputTokens, outputTokens, model = null) {
+  async trackUsage(provider, inputTokens, outputTokens, model = null, source = 'general') {
     await this.ensureInitialized();
     
-    if (!['claude', 'openai', 'copilot'].includes(provider)) {
+    if (!['claude', 'claude-haiku', 'openai', 'copilot'].includes(provider)) {
       logger.warn(`Unknown provider for cost tracking: ${provider}`);
       return;
     }
@@ -70,11 +76,14 @@ export class CostTracker {
     try {
       const CostUsage = getCostUsageModel();
       
+      // Create unique tracking key for provider + source combination
+      const trackingKey = source === 'poker-coach' ? `${provider}-poker` : provider;
+      
       // Get or create provider record
       let [usage] = await CostUsage.findOrCreate({
-        where: { provider },
+        where: { provider: trackingKey },
         defaults: {
-          provider,
+          provider: trackingKey,
           requests: 0,
           inputTokens: 0,
           outputTokens: 0,
@@ -96,7 +105,7 @@ export class CostTracker {
         model: model || usage.model
       });
 
-      logger.info(`Cost tracking - ${provider}: +$${cost.toFixed(4)} (Total: $${usage.totalCost.toFixed(4)})`);
+      logger.info(`Cost tracking - ${trackingKey}: +$${cost.toFixed(4)} (Total: $${usage.totalCost.toFixed(4)})`);
     } catch (error) {
       logger.error('Failed to track usage:', error);
     }
@@ -108,9 +117,14 @@ export class CostTracker {
   calculateCost(provider, inputTokens, outputTokens, model = null) {
     let pricing;
 
-    switch (provider) {
+    // Handle poker-specific provider keys
+    const baseProvider = provider.replace('-poker', '');
+
+    switch (baseProvider) {
       case 'claude':
-        pricing = this.pricing.claude;
+      case 'claude-haiku':
+        const claudeModel = model || (baseProvider === 'claude-haiku' ? 'claude-3-5-haiku-20241022' : 'claude-3-5-sonnet-20241022');
+        pricing = this.pricing.claude[claudeModel] || this.pricing.claude['claude-3-5-sonnet-20241022'];
         break;
       case 'openai':
         const modelKey = model || 'gpt-4o-mini';

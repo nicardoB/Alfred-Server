@@ -10,7 +10,8 @@ import { GitHubCopilotProvider } from './providers/GitHubCopilotProvider.js';
 export class SmartAIRouter {
   constructor() {
     this.providers = {
-      claude: new ClaudeProvider(),
+      claude: new ClaudeProvider('claude-3-5-sonnet-20241022'), // Sonnet for complex tasks
+      'claude-haiku': new ClaudeProvider('claude-3-5-haiku-20241022'), // Haiku for simple tasks
       openai: new OpenAIProvider(),
       copilot: new GitHubCopilotProvider()
     };
@@ -18,6 +19,7 @@ export class SmartAIRouter {
     this.activeRequests = new Map();
     this.routingStats = {
       claude: 0,
+      'claude-haiku': 0,
       openai: 0,
       copilot: 0
     };
@@ -184,22 +186,45 @@ export class SmartAIRouter {
   selectProvider(text, metadata = {}) {
     const textLower = text.toLowerCase();
     
+    // Check for poker-specific routing preferences
+    if (metadata.source === 'poker-coach') {
+      return this.selectPokerProvider(textLower, metadata);
+    }
+    
     // Code-related queries → GitHub Copilot
     if (this.isCodeRelated(textLower)) {
       return 'copilot';
     }
     
-    // Complex reasoning, analysis → Claude Sonnet 4
+    // Complex reasoning, analysis → Claude Sonnet
     if (this.isComplexReasoning(textLower)) {
       return 'claude';
     }
     
-    // Simple queries, quick responses → GPT-4o-mini
+    // Simple queries, quick responses → Claude Haiku (faster/cheaper than GPT)
     if (this.isSimpleQuery(textLower)) {
-      return 'openai';
+      return 'claude-haiku';
     }
     
-    // Default to Claude for general queries
+    // Default to Claude Sonnet for general queries
+    return 'claude';
+  }
+
+  /**
+   * Select provider specifically for poker coach requests
+   */
+  selectPokerProvider(text, metadata = {}) {
+    // Hand analysis, strategy, complex poker decisions → Claude Sonnet
+    if (this.isPokerAnalysis(text)) {
+      return 'claude';
+    }
+    
+    // Simple compliance checks, basic validation → Claude Haiku
+    if (this.isPokerCompliance(text)) {
+      return 'claude-haiku';
+    }
+    
+    // Default to Sonnet for poker-related tasks
     return 'claude';
   }
 
@@ -237,6 +262,31 @@ export class SmartAIRouter {
     ];
     
     return simpleKeywords.some(keyword => text.includes(keyword)) && text.length < 100;
+  }
+
+  /**
+   * Determine if query is poker analysis (complex)
+   */
+  isPokerAnalysis(text) {
+    const analysisKeywords = [
+      'analyze', 'analysis', 'strategy', 'decision', 'optimal', 'ev',
+      'expected value', 'range', 'equity', 'pot odds', 'implied odds',
+      'bluff', 'value bet', 'position', 'aggression', 'tight', 'loose'
+    ];
+    
+    return analysisKeywords.some(keyword => text.includes(keyword)) || text.length > 150;
+  }
+
+  /**
+   * Determine if query is poker compliance (simple)
+   */
+  isPokerCompliance(text) {
+    const complianceKeywords = [
+      'valid', 'check', 'verify', 'compliance', 'rule', 'legal',
+      'format', 'structure', 'basic', 'simple'
+    ];
+    
+    return complianceKeywords.some(keyword => text.includes(keyword)) && text.length < 100;
   }
 
   /**

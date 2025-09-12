@@ -2,10 +2,10 @@ import { logger } from '../../utils/logger.js';
 import { costTracker } from '../../monitoring/CostTracker.js';
 
 export class ClaudeProvider {
-  constructor() {
+  constructor(model = null) {
     this.name = 'claude';
     this.apiKey = process.env.ANTHROPIC_API_KEY;
-    this.model = process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
+    this.model = model || process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
     this.baseUrl = 'https://api.anthropic.com/v1/messages';
     
     // Debug logging for API key status
@@ -22,12 +22,12 @@ export class ClaudeProvider {
       return {
         content: `Claude mock response to: ${text}`,
         confidence: 0.9,
-        provider: 'claude'
+        provider: this.name
       };
     }
 
     try {
-      logger.info(`Claude processing: ${text}`);
+      logger.info(`Claude (${this.model}) processing: ${text}`);
       
       const response = await fetch(this.baseUrl, {
         method: 'POST',
@@ -53,22 +53,25 @@ export class ClaudeProvider {
       const data = await response.json();
       const content = data.content?.[0]?.text || 'No response from Claude';
       
-      // Track usage for cost monitoring
+      // Track usage for cost monitoring with source information
       const inputTokens = data.usage?.input_tokens || costTracker.estimateTokens(text);
       const outputTokens = data.usage?.output_tokens || costTracker.estimateTokens(content);
-      costTracker.trackUsage('claude', inputTokens, outputTokens, this.model);
+      const source = context?.metadata?.source || 'general';
+      const providerKey = this.model.includes('haiku') ? 'claude-haiku' : 'claude';
+      
+      costTracker.trackUsage(providerKey, inputTokens, outputTokens, this.model, source);
       
       return {
         content,
         confidence: 0.95,
-        provider: 'claude'
+        provider: this.name
       };
     } catch (error) {
       logger.error(`Claude provider error: ${error.message}`);
       return {
         content: `I apologize, but I'm having trouble processing your request right now. Please try again.`,
         confidence: 0.1,
-        provider: 'claude',
+        provider: this.name,
         error: error.message
       };
     }
