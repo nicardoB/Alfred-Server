@@ -1,10 +1,6 @@
 import { logger } from '../utils/logger.js';
-import { promises as fs } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { getCostUsageModel, initializeCostUsageModel } from '../models/CostUsage.js';
+import { Op } from 'sequelize';
 
 /**
  * Cost tracking system for AI provider usage
@@ -12,33 +8,8 @@ const __dirname = dirname(__filename);
  */
 export class CostTracker {
   constructor() {
-    this.dataFile = join(__dirname, '../../data/cost-tracking.json');
-    this.usage = {
-      claude: {
-        requests: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-        totalCost: 0,
-        lastReset: new Date().toISOString()
-      },
-      openai: {
-        requests: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-        totalCost: 0,
-        lastReset: new Date().toISOString()
-      },
-      copilot: {
-        requests: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-        totalCost: 0,
-        lastReset: new Date().toISOString()
-      }
-    };
-
-    // Load existing data on startup
-    this.loadData();
+    this.isInitialized = false;
+    this.initializeDatabase();
 
     // Pricing per 1K tokens (as of 2024)
     this.pricing = {
@@ -64,70 +35,71 @@ export class CostTracker {
   }
 
   /**
-   * Load cost data from persistent storage
+   * Initialize database connection and models
    */
-  async loadData() {
+  async initializeDatabase() {
     try {
-      // Ensure data directory exists
-      const dataDir = dirname(this.dataFile);
-      await fs.mkdir(dataDir, { recursive: true });
-
-      // Try to load existing data
-      const data = await fs.readFile(this.dataFile, 'utf8');
-      const savedUsage = JSON.parse(data);
-      
-      // Merge saved data with defaults
-      Object.keys(this.usage).forEach(provider => {
-        if (savedUsage[provider]) {
-          this.usage[provider] = { ...this.usage[provider], ...savedUsage[provider] };
-        }
-      });
-      
-      logger.info('Cost tracking data loaded from persistent storage');
+      await initializeCostUsageModel();
+      this.isInitialized = true;
+      logger.info('Cost tracking database initialized');
     } catch (error) {
-      if (error.code !== 'ENOENT') {
-        logger.warn('Failed to load cost tracking data:', error.message);
-      }
-      // File doesn't exist or is corrupted, start fresh
-      await this.saveData();
+      logger.error('Failed to initialize cost tracking database:', error);
     }
   }
 
   /**
-   * Save cost data to persistent storage
+   * Ensure database is initialized
    */
-  async saveData() {
-    try {
-      const dataDir = dirname(this.dataFile);
-      await fs.mkdir(dataDir, { recursive: true });
-      await fs.writeFile(this.dataFile, JSON.stringify(this.usage, null, 2));
-    } catch (error) {
-      logger.error('Failed to save cost tracking data:', error);
+  async ensureInitialized() {
+    if (!this.isInitialized) {
+      await this.initializeDatabase();
     }
   }
 
   /**
    * Track usage for a provider request
    */
-  trackUsage(provider, inputTokens, outputTokens, model = null) {
-    if (!this.usage[provider]) {
+  async trackUsage(provider, inputTokens, outputTokens, model = null) {
+    await this.ensureInitialized();
+    
+    if (!['claude', 'openai', 'copilot'].includes(provider)) {
       logger.warn(`Unknown provider for cost tracking: ${provider}`);
       return;
     }
 
-    const usage = this.usage[provider];
-    usage.requests++;
-    usage.inputTokens += inputTokens;
-    usage.outputTokens += outputTokens;
+    try {
+      const CostUsage = getCostUsageModel();
+      
+      // Get or create provider record
+      let [usage] = await CostUsage.findOrCreate({
+        where: { provider },
+        defaults: {
+          provider,
+          requests: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalCost: 0,
+          model,
+          lastReset: new Date()
+        }
+      });
 
-    // Calculate cost based on provider and model
-    const cost = this.calculateCost(provider, inputTokens, outputTokens, model);
-    usage.totalCost += cost;
+      // Calculate cost based on provider and model
+      const cost = this.calculateCost(provider, inputTokens, outputTokens, model);
+      
+      // Update usage
+      await usage.update({
+        requests: usage.requests + 1,
+        inputTokens: usage.inputTokens + inputTokens,
+        outputTokens: usage.outputTokens + outputTokens,
+        totalCost: parseFloat(usage.totalCost) + cost,
+        model: model || usage.model
+      });
 
-    logger.info(`Cost tracking - ${provider}: +$${cost.toFixed(4)} (Total: $${usage.totalCost.toFixed(4)})`);
-    
-    // Save to persistent storage after each update
-    this.saveData().catch(err => logger.error('Failed to persist cost data:', err));
+      logger.info(`Cost tracking - ${provider}: +$${cost.toFixed(4)} (Total: $${usage.totalCost.toFixed(4)})`);
+    } catch (error) {
+      logger.error('Failed to track usage:', error);
+    }
   }
 
   /**
@@ -160,68 +132,105 @@ export class CostTracker {
   /**
    * Get current usage statistics
    */
-  getUsageStats() {
-    const totalCost = Object.values(this.usage).reduce((sum, provider) => sum + provider.totalCost, 0);
-    const totalRequests = Object.values(this.usage).reduce((sum, provider) => sum + provider.requests, 0);
+  async getUsageStats() {
+    await this.ensureInitialized();
+    
+    try {
+      const CostUsage = getCostUsageModel();
+      const allUsage = await CostUsage.findAll();
+      
+      const providers = {};
+      let totalCost = 0;
+      let totalRequests = 0;
+      
+      // Initialize default providers
+      ['claude', 'openai', 'copilot'].forEach(provider => {
+        providers[provider] = {
+          requests: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalCost: 0,
+          lastReset: new Date().toISOString(),
+          avgCostPerRequest: 0
+        };
+      });
+      
+      // Populate with actual data
+      allUsage.forEach(usage => {
+        const cost = parseFloat(usage.totalCost);
+        providers[usage.provider] = {
+          requests: usage.requests,
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          totalCost: parseFloat(cost.toFixed(4)),
+          lastReset: usage.lastReset.toISOString(),
+          avgCostPerRequest: usage.requests > 0 
+            ? parseFloat((cost / usage.requests).toFixed(4))
+            : 0
+        };
+        
+        totalCost += cost;
+        totalRequests += usage.requests;
+      });
 
-    return {
-      summary: {
-        totalCost: parseFloat(totalCost.toFixed(4)),
-        totalRequests,
-        currency: 'USD'
-      },
-      providers: {
-        claude: {
-          ...this.usage.claude,
-          totalCost: parseFloat(this.usage.claude.totalCost.toFixed(4)),
-          avgCostPerRequest: this.usage.claude.requests > 0 
-            ? parseFloat((this.usage.claude.totalCost / this.usage.claude.requests).toFixed(4))
-            : 0
+      return {
+        summary: {
+          totalCost: parseFloat(totalCost.toFixed(4)),
+          totalRequests,
+          currency: 'USD'
         },
-        openai: {
-          ...this.usage.openai,
-          totalCost: parseFloat(this.usage.openai.totalCost.toFixed(4)),
-          avgCostPerRequest: this.usage.openai.requests > 0 
-            ? parseFloat((this.usage.openai.totalCost / this.usage.openai.requests).toFixed(4))
-            : 0
+        providers,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      logger.error('Failed to get usage stats:', error);
+      return {
+        summary: { totalCost: 0, totalRequests: 0, currency: 'USD' },
+        providers: {
+          claude: { requests: 0, inputTokens: 0, outputTokens: 0, totalCost: 0, lastReset: new Date().toISOString(), avgCostPerRequest: 0 },
+          openai: { requests: 0, inputTokens: 0, outputTokens: 0, totalCost: 0, lastReset: new Date().toISOString(), avgCostPerRequest: 0 },
+          copilot: { requests: 0, inputTokens: 0, outputTokens: 0, totalCost: 0, lastReset: new Date().toISOString(), avgCostPerRequest: 0 }
         },
-        copilot: {
-          ...this.usage.copilot,
-          totalCost: parseFloat(this.usage.copilot.totalCost.toFixed(4)),
-          avgCostPerRequest: this.usage.copilot.requests > 0 
-            ? parseFloat((this.usage.copilot.totalCost / this.usage.copilot.requests).toFixed(4))
-            : 0
-        }
-      },
-      timestamp: new Date().toISOString()
-    };
+        timestamp: new Date().toISOString()
+      };
+    }
   }
 
   /**
    * Reset usage statistics
    */
   async resetUsage(provider = null) {
-    const resetData = {
-      requests: 0,
-      inputTokens: 0,
-      outputTokens: 0,
-      totalCost: 0,
-      lastReset: new Date().toISOString()
-    };
-
-    if (provider && this.usage[provider]) {
-      this.usage[provider] = { ...resetData };
-      logger.info(`Cost tracking reset for ${provider}`);
-    } else {
-      // Reset all providers
-      Object.keys(this.usage).forEach(key => {
-        this.usage[key] = { ...resetData };
-      });
-      logger.info('Cost tracking reset for all providers');
+    await this.ensureInitialized();
+    
+    try {
+      const CostUsage = getCostUsageModel();
+      
+      if (provider) {
+        await CostUsage.update({
+          requests: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalCost: 0,
+          lastReset: new Date()
+        }, {
+          where: { provider }
+        });
+        logger.info(`Cost tracking reset for ${provider}`);
+      } else {
+        await CostUsage.update({
+          requests: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalCost: 0,
+          lastReset: new Date()
+        }, {
+          where: {}
+        });
+        logger.info('Cost tracking reset for all providers');
+      }
+    } catch (error) {
+      logger.error('Failed to reset usage:', error);
     }
-
-    // Save reset data to persistent storage
-    await this.saveData();
   }
 
   /**

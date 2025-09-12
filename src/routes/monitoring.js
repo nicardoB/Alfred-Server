@@ -31,9 +31,9 @@ export function monitoringRoutes(emailNotifier = null) {
    * GET /api/v1/monitoring/costs
    * Get current cost statistics for all providers
    */
-  router.get('/costs', (req, res) => {
+  router.get('/costs', async (req, res) => {
     try {
-      const stats = costTracker.getUsageStats();
+      const stats = await costTracker.getUsageStats();
       res.json({
         success: true,
         data: stats
@@ -234,18 +234,18 @@ export function monitoringRoutes(emailNotifier = null) {
   router.post('/costs/populate-test-data', async (req, res) => {
     try {
       // Generate realistic test usage data
-      costTracker.trackUsage('claude', 1500, 800);  // ~$0.0165
-      costTracker.trackUsage('claude', 2200, 1200); // ~$0.0246
-      costTracker.trackUsage('claude', 800, 400);   // ~$0.0084
+      await costTracker.trackUsage('claude', 1500, 800);  // ~$0.0165
+      await costTracker.trackUsage('claude', 2200, 1200); // ~$0.0246
+      await costTracker.trackUsage('claude', 800, 400);   // ~$0.0084
       
-      costTracker.trackUsage('openai', 1200, 600);  // ~$0.0005 (gpt-4o-mini)
-      costTracker.trackUsage('openai', 1800, 900);  // ~$0.0008
-      costTracker.trackUsage('openai', 900, 450);   // ~$0.0004
+      await costTracker.trackUsage('openai', 1200, 600);  // ~$0.0005 (gpt-4o-mini)
+      await costTracker.trackUsage('openai', 1800, 900);  // ~$0.0008
+      await costTracker.trackUsage('openai', 900, 450);   // ~$0.0004
       
-      costTracker.trackUsage('copilot', 1000, 500); // ~$0.0060
-      costTracker.trackUsage('copilot', 1500, 750); // ~$0.0090
+      await costTracker.trackUsage('copilot', 1000, 500); // ~$0.0060
+      await costTracker.trackUsage('copilot', 1500, 750); // ~$0.0090
       
-      const stats = costTracker.getUsageStats();
+      const stats = await costTracker.getUsageStats();
       
       res.json({
         success: true,

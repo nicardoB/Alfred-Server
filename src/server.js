@@ -61,7 +61,7 @@ import EmailNotifier from './monitoring/EmailNotifier.js';
 const emailNotifier = new EmailNotifier();
 
 // Setup database connection
-await setupDatabase();
+const database = await setupDatabase();
 
 // Initialize email notifier
 await emailNotifier.initialize();
