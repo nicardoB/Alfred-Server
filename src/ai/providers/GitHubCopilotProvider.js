@@ -5,8 +5,8 @@ export class GitHubCopilotProvider {
   constructor() {
     this.name = 'copilot';
     this.apiKey = process.env.GITHUB_TOKEN;
-    this.model = process.env.COPILOT_MODEL || 'gpt-4o';
-    this.baseUrl = 'https://api.githubcopilot.com/chat/completions';
+    this.model = process.env.COPILOT_MODEL || 'gpt-4o-mini';
+    this.baseUrl = 'https://models.github.ai/inference/chat/completions';
     
     // Debug logging for API key status
     if (this.apiKey) {
@@ -34,9 +34,7 @@ export class GitHubCopilotProvider {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.apiKey}`,
-          'Editor-Version': 'vscode/1.85.0',
-          'Editor-Plugin-Version': 'copilot-chat/0.11.1',
-          'User-Agent': 'GitHubCopilotChat/0.11.1'
+          'User-Agent': 'Alfred-MCP-Server/1.0.0'
         },
         body: JSON.stringify({
           messages: [{
@@ -47,13 +45,14 @@ export class GitHubCopilotProvider {
           temperature: 0.1,
           top_p: 1,
           n: 1,
-          stream: false,
-          intent: true
+          stream: false
         })
       });
 
       if (!response.ok) {
-        throw new Error(`GitHub Copilot API error: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        logger.error(`GitHub Copilot API error details: ${errorText}`);
+        throw new Error(`GitHub Copilot API error: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
