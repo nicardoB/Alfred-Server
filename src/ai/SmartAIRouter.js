@@ -10,8 +10,8 @@ import { GitHubCopilotProvider } from './providers/GitHubCopilotProvider.js';
 export class SmartAIRouter {
   constructor() {
     this.providers = {
-      claude: new ClaudeProvider('claude-3-5-sonnet-20241022'), // Sonnet for complex tasks
-      'claude-haiku': new ClaudeProvider('claude-3-5-haiku-20241022'), // Haiku for simple tasks
+      claude: new ClaudeProvider(process.env.CLAUDE_API_KEY, 'claude-3-5-sonnet-20241022'), // Sonnet for complex tasks
+      'claude-haiku': new ClaudeProvider(process.env.CLAUDE_API_KEY, 'claude-3-5-haiku-20241022'), // Haiku for simple tasks
       openai: new OpenAIProvider(),
       copilot: new GitHubCopilotProvider()
     };
@@ -187,7 +187,7 @@ export class SmartAIRouter {
     const textLower = text.toLowerCase();
     
     // Check for poker-specific routing preferences
-    if (metadata.source === 'poker-coach') {
+    if (metadata.source === 'poker-coach' || metadata.source === 'poker' || this.isPokerRelated(textLower)) {
       return this.selectPokerProvider(textLower, metadata);
     }
     
@@ -214,14 +214,14 @@ export class SmartAIRouter {
    * Select provider specifically for poker coach requests
    */
   selectPokerProvider(text, metadata = {}) {
+    // Simple compliance checks, basic validation → Claude Haiku (check first)
+    if (this.isPokerCompliance(text)) {
+      return 'claude-haiku';
+    }
+    
     // Hand analysis, strategy, complex poker decisions → Claude Sonnet
     if (this.isPokerAnalysis(text)) {
       return 'claude';
-    }
-    
-    // Simple compliance checks, basic validation → Claude Haiku
-    if (this.isPokerCompliance(text)) {
-      return 'claude-haiku';
     }
     
     // Default to Sonnet for poker-related tasks
@@ -271,10 +271,24 @@ export class SmartAIRouter {
     const analysisKeywords = [
       'analyze', 'analysis', 'strategy', 'decision', 'optimal', 'ev',
       'expected value', 'range', 'equity', 'pot odds', 'implied odds',
-      'bluff', 'value bet', 'position', 'aggression', 'tight', 'loose'
+      'bluff', 'value bet', 'position', 'aggression', 'tight', 'loose',
+      'opponent', 'betting line', 'review', 'calculate', 'postflop'
     ];
     
-    return analysisKeywords.some(keyword => text.includes(keyword)) || text.length > 150;
+    return analysisKeywords.some(keyword => text.includes(keyword));
+  }
+
+  /**
+   * Determine if query is poker-related at all
+   */
+  isPokerRelated(text) {
+    const pokerKeywords = [
+      'poker', 'hand', 'cards', 'bet', 'fold', 'call', 'raise', 'bluff',
+      'gto', 'solver', 'equity', 'pot odds', 'preflop', 'flop', 'turn', 'river',
+      'villain', 'hero', 'position', 'stack', 'tournament', 'cash game'
+    ];
+    
+    return pokerKeywords.some(keyword => text.includes(keyword));
   }
 
   /**
@@ -282,11 +296,12 @@ export class SmartAIRouter {
    */
   isPokerCompliance(text) {
     const complianceKeywords = [
-      'valid', 'check', 'verify', 'compliance', 'rule', 'legal',
-      'format', 'structure', 'basic', 'simple'
+      'gto', 'compliance', 'check', 'verify', 'validate', 'framework',
+      'solver', 'according to', 'is this', 'correct play', 'verification',
+      'audit', 'recommendation'
     ];
     
-    return complianceKeywords.some(keyword => text.includes(keyword)) && text.length < 100;
+    return complianceKeywords.some(keyword => text.includes(keyword));
   }
 
   /**
