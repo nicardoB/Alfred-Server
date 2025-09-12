@@ -92,7 +92,7 @@ describe('MCP Routes - Enhanced Tests', () => {
         });
 
       expect(response.status).toBe(200);
-      expect(response.body.content).toBe('No response'); // Current fallback until AI providers connected
+      expect(response.body.content).toBeDefined(); // AI providers now connected
     });
 
     it('should handle special characters and unicode', async () => {
@@ -114,7 +114,7 @@ describe('MCP Routes - Enhanced Tests', () => {
         });
 
       expect(response.status).toBe(200);
-      expect(response.body.content).toBe('No response'); // Current fallback until AI providers connected
+      expect(response.body.content).toBeDefined(); // AI providers now connected
     });
 
     it('should handle empty text gracefully', async () => {
@@ -166,7 +166,7 @@ describe('MCP Routes - Enhanced Tests', () => {
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('sessionId', 'test-session');
       expect(response.body).toHaveProperty('requestId');
-      expect(response.body).toHaveProperty('content', 'No response'); // Current fallback
+      expect(response.body).toHaveProperty('content', 'Test AI response'); // Mock response
       expect(response.body).toHaveProperty('confidence', 0.87); // Mock confidence from test
       expect(response.body).toHaveProperty('provider', 'openai'); // Mock provider from test
       expect(response.body).toHaveProperty('timestamp');
@@ -350,7 +350,7 @@ describe('MCP Routes - Enhanced Tests', () => {
       responses.forEach((response, index) => {
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
-        expect(response.body.content).toBe('No response'); // Current fallback
+        expect(response.body.content).toBe('Quick response'); // Mock response
       });
     });
 

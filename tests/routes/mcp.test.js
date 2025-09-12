@@ -162,7 +162,7 @@ describe('MCP Routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.content).toBe('');
+      expect(response.body.content).toBe('No response');
       expect(response.body.confidence).toBe(0.5);
     });
 

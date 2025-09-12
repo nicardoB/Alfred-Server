@@ -39,7 +39,7 @@ describe('MCP Server Integration', () => {
 
     expect(textResponse.status).toBe(200);
     expect(textResponse.body.success).toBe(true);
-    expect(textResponse.body.response).toBeDefined();
+    expect(textResponse.body.content).toBeDefined();
 
     // 3. Disconnect
     const disconnectResponse = await request(app)
@@ -56,7 +56,7 @@ describe('MCP Server Integration', () => {
     // Test provider selection logic
     expect(router.selectProvider('debug this code')).toBe('copilot');
     expect(router.selectProvider('analyze this complex problem')).toBe('claude');
-    expect(router.selectProvider('what is the weather')).toBe('openai'); // Simple query goes to OpenAI
+    expect(router.selectProvider('what is the weather')).toBe('claude-haiku'); // Simple query goes to Claude Haiku
   });
 
   test('Session management works', async () => {

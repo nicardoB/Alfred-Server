@@ -38,6 +38,14 @@ describe('SmartAIRouter', () => {
     jest.clearAllMocks();
     router = new SmartAIRouter();
     
+    // Override providers with mocks
+    router.providers = {
+      claude: mockClaudeProvider,
+      'claude-haiku': mockClaudeProvider, // Use same mock for both Claude models
+      openai: mockOpenAIProvider,
+      copilot: mockCopilotProvider
+    };
+    
     // Set up mock implementations
     mockClaudeProvider.processText.mockResolvedValue({ content: 'Claude response', confidence: 0.9 });
     mockOpenAIProvider.processText.mockResolvedValue({ content: 'OpenAI response', confidence: 0.85 });
@@ -74,7 +82,7 @@ describe('SmartAIRouter', () => {
       });
     });
 
-    it('should route simple queries to OpenAI', () => {
+    it('should route simple queries to Claude Haiku', () => {
       const simpleQueries = [
         'what is the capital of France?',
         'how to boil an egg?',
@@ -84,7 +92,7 @@ describe('SmartAIRouter', () => {
 
       simpleQueries.forEach(query => {
         const provider = router.selectProvider(query);
-        expect(provider).toBe('openai');
+        expect(provider).toBe('claude-haiku');
       });
     });
 
@@ -338,6 +346,7 @@ describe('SmartAIRouter', () => {
 
       expect(stats.routingStats).toEqual({
         claude: 5,
+        'claude-haiku': 0,
         openai: 3,
         copilot: 2
       });
