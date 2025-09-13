@@ -4,6 +4,7 @@ import { logger } from '../utils/logger.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
+import { authenticate, requireOwner } from '../middleware/authentication.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -11,27 +12,50 @@ const __dirname = dirname(__filename);
 export function monitoringRoutes(emailNotifier = null) {
   const router = Router();
 
-  // Authentication middleware for all monitoring endpoints
-  const authMiddleware = (req, res, next) => {
+  // Legacy authentication middleware for backward compatibility
+  const legacyAuthMiddleware = (req, res, next) => {
     const apiKey = req.headers['x-api-key'] || req.headers['authorization'];
     
-    if (!apiKey || apiKey !== process.env.MONITORING_API_KEY) {
-      logger.warn('Unauthorized monitoring access attempt', {
-        ip: req.ip,
-        userAgent: req.headers['user-agent'],
-        endpoint: req.path
-      });
-      return res.status(401).json({ 
-        error: 'Unauthorized',
-        message: 'Authentication required for monitoring endpoints' 
-      });
+    // Check for legacy MONITORING_API_KEY first
+    if (apiKey === process.env.MONITORING_API_KEY) {
+      return next();
     }
     
-    next();
+    // If not legacy key, try new authentication system
+    authenticate(req, res, (err) => {
+      if (err) {
+        logger.warn('Unauthorized monitoring access attempt', {
+          ip: req.ip,
+          userAgent: req.headers['user-agent'],
+          endpoint: req.path
+        });
+        return res.status(401).json({ 
+          error: 'Unauthorized',
+          message: 'Authentication required for monitoring endpoints' 
+        });
+      }
+      
+      // Check if user has owner role
+      if (req.user && req.user.role === 'owner') {
+        return next();
+      }
+      
+      logger.warn('Insufficient permissions for monitoring access', {
+        userId: req.user?.id,
+        role: req.user?.role,
+        ip: req.ip,
+        endpoint: req.path
+      });
+      
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Owner role required for monitoring access'
+      });
+    });
   };
 
   // Apply authentication to all monitoring routes
-  router.use(authMiddleware);
+  router.use(legacyAuthMiddleware);
 
   /**
    * GET /api/v1/monitoring/dashboard
