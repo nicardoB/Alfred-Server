@@ -10,6 +10,8 @@
     "test": "NODE_OPTIONS=\"--experimental-vm-modules\" jest",
     "test:watch": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --watch",
     "test:coverage": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --coverage",
+    "test:auth": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --config jest.config.auth.js",
+    "test:auth:coverage": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --config jest.config.auth.js --coverage",
     "build": "echo 'No build step required'",
     "postinstall": "echo 'Installation complete'",
     "lint": "eslint src/",
