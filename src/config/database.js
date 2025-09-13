@@ -1,6 +1,10 @@
 import { Sequelize } from 'sequelize';
 import { logger } from '../utils/logger.js';
 import { initializeCostUsageModel } from '../models/CostUsage.js';
+import { initializeUserModel } from '../models/User.js';
+import { initializeSessionModel } from '../models/Session.js';
+import { initializeApiKeyModel } from '../models/ApiKey.js';
+import { initializeAuditLogModel } from '../models/AuditLog.js';
 
 let sequelize;
 
@@ -42,7 +46,33 @@ export async function setupDatabase() {
     }
     
     // Initialize models
-    initializeCostUsageModel(sequelize);
+    await initializeCostUsageModel(sequelize);
+    await initializeUserModel(sequelize);
+    await initializeSessionModel(sequelize);
+    await initializeApiKeyModel(sequelize);
+    await initializeAuditLogModel(sequelize);
+    
+    // Set up model associations
+    const User = (await import('../models/User.js')).getUserModel();
+    const Session = (await import('../models/Session.js')).getSessionModel();
+    const ApiKey = (await import('../models/ApiKey.js')).getApiKeyModel();
+    const AuditLog = (await import('../models/AuditLog.js')).getAuditLogModel();
+    
+    if (User && Session && ApiKey && AuditLog) {
+      // User associations
+      User.hasMany(Session, { foreignKey: 'userId', as: 'sessions' });
+      User.hasMany(ApiKey, { foreignKey: 'userId', as: 'apiKeys' });
+      User.hasMany(AuditLog, { foreignKey: 'userId', as: 'auditLogs' });
+      
+      // Session associations
+      Session.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+      
+      // ApiKey associations
+      ApiKey.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+      
+      // AuditLog associations
+      AuditLog.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+    }
     
     // Test the connection
     await sequelize.authenticate();

@@ -1,9 +1,15 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger.js';
+import { authenticate, requireFriend, rateLimit } from '../middleware/authentication.js';
 
 export function mcpRoutes(sessionManager, smartAIRouter) {
   const router = Router();
+
+  // Apply authentication and rate limiting to all MCP routes
+  router.use(authenticate);
+  router.use(requireFriend);
+  router.use(rateLimit(200)); // 200 requests per hour for MCP operations
 
   // Connect to MCP server - matches MCPClient.connect()
   router.post('/connect', async (req, res) => {

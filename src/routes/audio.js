@@ -1,9 +1,15 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger.js';
+import { authenticate, requireFriend, rateLimit } from '../middleware/authentication.js';
 
 export function audioRoutes(sessionManager, smartAIRouter) {
   const router = Router();
+
+  // Apply authentication and rate limiting to all audio routes
+  router.use(authenticate);
+  router.use(requireFriend);
+  router.use(rateLimit(100)); // 100 requests per hour for audio operations
 
   // Stream audio data - matches MCPClient.streamAudioData()
   router.post('/stream', async (req, res) => {

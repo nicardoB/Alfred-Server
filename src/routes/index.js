@@ -4,6 +4,7 @@ import { audioRoutes } from './audio.js';
 import { sessionRoutes } from './session.js';
 import { healthRoutes } from './health.js';
 import { monitoringRoutes } from './monitoring.js';
+import authRoutes from './auth.js';
 
 export function setupRoutes(app, dependencies) {
   const { sessionManager, smartAIRouter, emailNotifier } = dependencies;
@@ -12,6 +13,7 @@ export function setupRoutes(app, dependencies) {
   const apiV1 = Router();
   
   // Mount route modules
+  apiV1.use('/auth', authRoutes);
   apiV1.use('/mcp', mcpRoutes(sessionManager, smartAIRouter));
   apiV1.use('/audio', audioRoutes(sessionManager, smartAIRouter));
   apiV1.use('/session', sessionRoutes(sessionManager));
@@ -27,6 +29,7 @@ export function setupRoutes(app, dependencies) {
       name: 'Alfred MCP Server',
       version: '1.0.0',
       endpoints: {
+        auth: '/api/v1/auth',
         health: '/api/v1/health',
         session: '/api/v1/session',
         mcp: '/api/v1/mcp',

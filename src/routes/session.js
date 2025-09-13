@@ -1,8 +1,14 @@
 import { Router } from 'express';
 import { logger } from '../utils/logger.js';
+import { authenticate, requireFriend, rateLimit } from '../middleware/authentication.js';
 
 export function sessionRoutes(sessionManager) {
   const router = Router();
+
+  // Apply authentication and rate limiting to all session routes
+  router.use(authenticate);
+  router.use(requireFriend);
+  router.use(rateLimit(50)); // 50 requests per hour for session operations
 
   // Get session info
   router.get('/:sessionId', async (req, res) => {
