@@ -1,14 +1,20 @@
 import request from 'supertest';
 import { jest } from '@jest/globals';
-import { app } from '../../src/server.js';
+import express from 'express';
+import cors from 'cors';
+import { mcpRoutes } from '../../src/routes/mcp.js';
 
 describe('MCP Integration Flow', () => {
+  let app;
   let sessionId;
   let requestId;
 
   beforeAll(async () => {
-    // Wait for server to be ready
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Create test app instance to avoid port conflicts
+    app = express();
+    app.use(cors());
+    app.use(express.json());
+    app.use('/api/v1/mcp', mcpRoutes);
   });
 
   describe('Complete MCP Flow', () => {
@@ -104,7 +110,7 @@ describe('MCP Integration Flow', () => {
 
       expect(textResponse.status).toBe(200);
       expect(textResponse.body.success).toBe(true);
-      expect(textResponse.body.response).toBeDefined();
+      expect(textResponse.body.content).toBeDefined();
 
       // Step 6: Disconnect
       const disconnectResponse = await request(app)

@@ -11,6 +11,28 @@ const __dirname = dirname(__filename);
 export function monitoringRoutes(emailNotifier = null) {
   const router = Router();
 
+  // Authentication middleware for all monitoring endpoints
+  const authMiddleware = (req, res, next) => {
+    const apiKey = req.headers['x-api-key'] || req.headers['authorization'];
+    
+    if (!apiKey || apiKey !== process.env.MONITORING_API_KEY) {
+      logger.warn('Unauthorized monitoring access attempt', {
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        endpoint: req.path
+      });
+      return res.status(401).json({ 
+        error: 'Unauthorized',
+        message: 'Authentication required for monitoring endpoints' 
+      });
+    }
+    
+    next();
+  };
+
+  // Apply authentication to all monitoring routes
+  router.use(authMiddleware);
+
   /**
    * GET /api/v1/monitoring/dashboard
    * Serve the cost dashboard HTML page
