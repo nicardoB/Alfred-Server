@@ -557,10 +557,11 @@ export class SmartAIRouter {
    */
   isSimpleQuery(text) {
     const simpleKeywords = [
-      'what is', 'how to', 'define', 'quick', 'simple', 'basic'
+      'hello', 'hi', 'hey', 'what is', 'how to', 'define', 'quick', 'simple', 'basic'
     ];
     
-    return simpleKeywords.some(keyword => text.includes(keyword)) && text.length < 100;
+    // Short messages or simple greetings should use cheap model
+    return simpleKeywords.some(keyword => text.toLowerCase().includes(keyword)) || text.length < 50;
   }
 
   /**
