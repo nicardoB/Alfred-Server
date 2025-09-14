@@ -124,19 +124,28 @@
 - [ ] **Privacy-Aware Routing** - Route sensitive conversations to local models
 - [ ] **Local Model Management** - Download, update, and manage local models
 
-#### 2.6 Advanced Features (Week 6-7)
+#### 2.6 User Onboarding System (Week 6)
+- [ ] **Invitation System** - Secure invite links for family/friend user onboarding
+- [ ] **Private URL Strategy** - Friendly, non-indexed URLs (join.alfred-ai.com/family)
+- [ ] **Polished Invite Emails** - Beautiful, branded email templates for invitations
+- [ ] **Role-Based Navigation** - UI navigation showing relevant features per user role
+- [ ] **Family User Setup** - Wife access with privacy settings and cost tracking
+- [ ] **Friend User Setup** - Friend access to poker coach with budget limits
+- [ ] **User-Specific Dashboards** - Personalized cost tracking and feature access
+
+#### 2.7 Advanced Features (Week 7-8)
 - [ ] **Document Integration** - In-app document system with rich editor
 - [ ] **Context Management** - Infinite conversation with smart summarization
 - [ ] **Vector Store Integration** - Semantic search across conversation history
 - [ ] **File Upload Support** - Allow file uploads for AI analysis
 
-#### 2.7 Testing & Quality (Week 7-8)
+#### 2.8 Testing & Quality (Week 8-9)
 - [ ] **Unit Tests** - Comprehensive component and hook testing
 - [ ] **Integration Tests** - WebSocket, API, and cost tracking integration
 - [ ] **E2E Tests** - Complete conversation flows and user journeys
 - [ ] **Claude Migration Test** - Import and validate real Claude conversation
 
-#### 2.8 Deployment & Polish (Week 8)
+#### 2.9 Deployment & Polish (Week 9)
 - [ ] **Production Build** - Optimize and build for production
 - [ ] **Performance Optimization** - Virtual scrolling, caching, lazy loading
 - [ ] **UI Polish** - Final design touches, animations, responsive design
