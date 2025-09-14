@@ -36,6 +36,10 @@ export class CostTracker {
       copilot: {
         input: 0.002,    // Estimated based on GitHub pricing
         output: 0.008
+      },
+      ollama: {
+        input: 0.0,      // Free local model
+        output: 0.0
       }
     };
   }

@@ -2,6 +2,7 @@ import { logger } from '../utils/logger.js';
 import { ClaudeProvider } from './providers/ClaudeProvider.js';
 import { OpenAIProvider } from './providers/OpenAIProvider.js';
 import { GitHubCopilotProvider } from './providers/GitHubCopilotProvider.js';
+import { OllamaProvider } from './providers/OllamaProvider.js';
 import { getCostUsageModel } from '../models/CostUsage.js';
 
 /**
@@ -11,6 +12,7 @@ import { getCostUsageModel } from '../models/CostUsage.js';
 export class SmartAIRouter {
   constructor() {
     this.providers = {
+      ollama: new OllamaProvider(), // Free local model - PRIMARY ROUTER
       claude: new ClaudeProvider(process.env.CLAUDE_API_KEY, 'claude-3-5-sonnet-20241022'), // Sonnet for complex tasks
       'claude-haiku': new ClaudeProvider(process.env.CLAUDE_API_KEY, 'claude-3-5-haiku-20241022'), // Haiku for simple tasks
       openai: new OpenAIProvider(),
@@ -19,6 +21,7 @@ export class SmartAIRouter {
     
     this.activeRequests = new Map();
     this.routingStats = {
+      ollama: 0,
       claude: 0,
       'claude-haiku': 0,
       openai: 0,
@@ -28,8 +31,9 @@ export class SmartAIRouter {
     // Tool-specific routing configurations
     this.toolConfigs = {
       chat: {
-        defaultProvider: 'claude',
-        costOptimizedProvider: 'claude-haiku',
+        defaultProvider: 'ollama', // Free local model as primary
+        fallbackProvider: 'openai', // GPT-4o Mini as cheap fallback
+        costOptimizedProvider: 'ollama',
         maxCostPerRequest: { owner: 1.0, family: 0.1, friend: 0.02, demo: 0.01 }
       },
       poker: {
@@ -67,7 +71,7 @@ export class SmartAIRouter {
     
     try {
       // Analyze request to determine best provider
-      const provider = this.selectProvider(text, metadata);
+      const provider = await this.selectProvider(text, metadata);
       logger.info(`Routing text command to ${provider} for session ${sessionId}`);
       
       // Track active request
@@ -217,7 +221,7 @@ export class SmartAIRouter {
   /**
    * Unified provider selection based on tool context, user role, and cost constraints
    */
-  selectProvider(text, metadata = {}) {
+  async selectProvider(text, metadata = {}) {
     const { toolContext = 'chat', user, estimatedCost = 0 } = metadata;
     const userRole = user?.role || 'demo';
     
@@ -241,19 +245,19 @@ export class SmartAIRouter {
     }
     
     // Route based on tool context
-    return this.routeByTool(toolContext, text, metadata);
+    return await this.routeByTool(toolContext, text, metadata);
   }
 
   /**
    * Route request based on specific tool context
    */
-  routeByTool(toolContext, text, metadata = {}) {
+  async routeByTool(toolContext, text, metadata = {}) {
     const textLower = text.toLowerCase();
     const toolConfig = this.toolConfigs[toolContext];
     
     switch (toolContext) {
       case 'chat':
-        return this.routeChat(textLower, metadata, toolConfig);
+        return await this.routeChat(textLower, metadata, toolConfig);
       
       case 'poker':
         return this.routePoker(textLower, metadata, toolConfig);
@@ -272,31 +276,54 @@ export class SmartAIRouter {
       
       default:
         logger.warn(`Unknown tool context: ${toolContext}, using chat routing`);
-        return this.routeChat(textLower, metadata, this.toolConfigs.chat);
+        return await this.routeChat(textLower, metadata, this.toolConfigs.chat);
     }
   }
 
   /**
-   * Chat tool routing - general conversation
+   * Chat tool routing - general conversation with free-first approach
    */
-  routeChat(text, metadata, config) {
+  async routeChat(text, metadata, config) {
     // Auto-detect code queries and route to code tool
     if (this.isCodeRelated(text)) {
       return this.routeCode(text, metadata, this.toolConfigs.code);
     }
     
+    // Check if Ollama is available for free routing
+    if (this.providers.ollama && await this.providers.ollama.isAvailable()) {
+      // Use Ollama's smart routing decision
+      const routingDecision = await this.providers.ollama.makeRoutingDecision(text, {
+        role: metadata.user?.role || 'demo',
+        costPreference: metadata.costPreference || 'free-first'
+      });
+      
+      switch (routingDecision) {
+        case 'LOCAL':
+          return 'ollama'; // Handle locally for free
+        case 'GPT4_MINI':
+          return 'openai'; // Cheap fallback
+        case 'CLAUDE_SONNET':
+          return 'claude'; // Complex reasoning
+        case 'COPILOT':
+          return 'copilot'; // Code tasks
+        default:
+          return 'ollama'; // Default to free
+      }
+    }
+    
+    // Fallback to original logic if Ollama unavailable
     // Complex reasoning, analysis → Claude Sonnet
     if (this.isComplexReasoning(text)) {
-      return config.defaultProvider;
+      return 'claude';
     }
     
-    // Simple queries, quick responses → Claude Haiku
+    // Simple queries, quick responses → GPT-4o Mini (cheapest paid)
     if (this.isSimpleQuery(text)) {
-      return config.costOptimizedProvider;
+      return 'openai';
     }
     
-    // Default to main provider
-    return config.defaultProvider;
+    // Default to cheapest paid option
+    return 'openai';
   }
 
   /**
