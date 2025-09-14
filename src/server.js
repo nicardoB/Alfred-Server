@@ -97,13 +97,15 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-server.listen(PORT, () => {
-  logger.info(`Alfred MCP Server running on port ${PORT}`);
-  logger.info(`Environment: ${process.env.NODE_ENV}`);
-  logger.info(`WebSocket enabled for real-time communication`);
-  logger.info('Cost monitoring dashboard available at /api/v1/monitoring/dashboard');
-});
+// Start server only if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  server.listen(PORT, () => {
+    logger.info(`Alfred MCP Server running on port ${PORT}`);
+    logger.info(`Environment: ${process.env.NODE_ENV}`);
+    logger.info(`WebSocket enabled for real-time communication`);
+    logger.info('Cost monitoring dashboard available at /api/v1/monitoring/dashboard');
+  });
+}
 
 // Graceful shutdown
 process.on('SIGTERM', () => {

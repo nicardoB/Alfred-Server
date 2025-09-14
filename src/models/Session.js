@@ -87,5 +87,8 @@ export async function initializeSessionModel(sequelize) {
 }
 
 export function getSessionModel() {
+  if (global.testModels?.Session) {
+    return global.testModels.Session;
+  }
   return Session;
 }

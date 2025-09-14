@@ -121,5 +121,8 @@ export async function initializeApiKeyModel(sequelize) {
 }
 
 export function getApiKeyModel() {
+  if (global.testModels?.ApiKey) {
+    return global.testModels.ApiKey;
+  }
   return ApiKey;
 }

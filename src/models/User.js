@@ -91,7 +91,7 @@ export function defineUserModel(sequelize) {
   };
 
   User.prototype.isLocked = function() {
-    return this.lockedUntil && new Date() < this.lockedUntil;
+    return !!(this.lockedUntil && new Date() < this.lockedUntil);
   };
 
   return User;
@@ -108,5 +108,8 @@ export async function initializeUserModel(sequelize) {
 }
 
 export function getUserModel() {
+  if (global.testModels?.User) {
+    return global.testModels.User;
+  }
   return User;
 }

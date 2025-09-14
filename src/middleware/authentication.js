@@ -210,6 +210,7 @@ export async function authenticate(req, res, next) {
 /**
  * Role-based authorization middleware
  */
+
 export function requireRole(allowedRoles) {
   return (req, res, next) => {
     if (!req.user) {

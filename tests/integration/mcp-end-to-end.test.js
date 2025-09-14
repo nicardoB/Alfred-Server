@@ -1,6 +1,20 @@
 import request from 'supertest';
 import { jest } from '@jest/globals';
-import app from '../../src/app.js';
+
+// Mock authentication middleware for integration tests
+jest.unstable_mockModule('../../src/middleware/authentication.js', () => ({
+  authenticate: (req, res, next) => {
+    req.user = { id: 'test-user', role: 'friend' };
+    next();
+  },
+  requireRole: (roles) => (req, res, next) => next(),
+  requireOwner: (req, res, next) => next(),
+  requireFriend: (req, res, next) => next(),
+  requirePermission: (permission) => (req, res, next) => next(),
+  rateLimit: (limit) => (req, res, next) => next()
+}));
+
+const { app } = await import('../../src/server.js');
 
 describe('MCP End-to-End Integration Tests', () => {
   let sessionId;

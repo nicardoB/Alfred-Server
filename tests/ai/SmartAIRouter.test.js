@@ -15,7 +15,8 @@ const mockOpenAIProvider = {
 
 const mockCopilotProvider = {
   processText: jest.fn(),
-  cancelRequest: jest.fn()
+  cancelRequest: jest.fn(),
+  isAvailable: jest.fn().mockReturnValue(true)
 };
 
 jest.mock('../../src/ai/providers/ClaudeProvider.js', () => ({

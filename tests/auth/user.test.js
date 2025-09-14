@@ -38,7 +38,7 @@ describe('User Model', () => {
       expect(user.role).toBe('owner');
       expect(user.hashedPassword).not.toBe('password123'); // Should be hashed
       expect(user.approved).toBe(false);
-      expect(user.monthlyBudget).toBe('35.00');
+      expect(parseFloat(user.monthlyBudget)).toBe(35.00);
     });
 
     test('should hash password on creation', async () => {

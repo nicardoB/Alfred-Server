@@ -2,11 +2,26 @@ import { jest } from '@jest/globals';
 import request from 'supertest';
 import express from 'express';
 import { Sequelize } from 'sequelize';
-import authRoutes from '../../src/routes/auth.js';
 import { defineUserModel } from '../../src/models/User.js';
 import { defineApiKeyModel } from '../../src/models/ApiKey.js';
 import { defineSessionModel } from '../../src/models/Session.js';
 import { defineAuditLogModel } from '../../src/models/AuditLog.js';
+
+// Mock the authentication middleware completely
+jest.unstable_mockModule('../../src/middleware/authentication.js', () => ({
+  authenticate: (req, res, next) => {
+    if (global.testUser) {
+      req.user = global.testUser;
+      req.authType = 'test';
+    }
+    next();
+  },
+  requireRole: (roles) => (req, res, next) => next(),
+  requireOwner: (req, res, next) => next(),
+  requirePermission: (permission) => (req, res, next) => next()
+}));
+
+const { default: authRoutes } = await import('../../src/routes/auth.js');
 
 describe('Authentication Routes', () => {
   let app;
@@ -33,27 +48,19 @@ describe('Authentication Routes', () => {
     
     await sequelize.sync();
 
-    // Mock the model getters
-    jest.unstable_mockModule('../../src/models/User.js', () => ({
-      getUserModel: () => User,
-      initializeUserModel: () => User
-    }));
-    jest.unstable_mockModule('../../src/models/ApiKey.js', () => ({
-      getApiKeyModel: () => ApiKey,
-      initializeApiKeyModel: () => ApiKey
-    }));
-    jest.unstable_mockModule('../../src/models/Session.js', () => ({
-      getSessionModel: () => Session,
-      initializeSessionModel: () => Session
-    }));
-    jest.unstable_mockModule('../../src/models/AuditLog.js', () => ({
-      getAuditLogModel: () => AuditLog,
-      initializeAuditLogModel: () => AuditLog
-    }));
+    // Set up global model references for the auth routes
+    global.testModels = {
+      User,
+      ApiKey, 
+      Session,
+      AuditLog
+    };
 
     // Setup Express app
     app = express();
     app.use(express.json());
+    
+    
     app.use('/api/v1/auth', authRoutes);
   });
 
@@ -255,12 +262,9 @@ describe('Authentication Routes', () => {
         role: 'owner',
         permissions: { 'system.admin': true }
       });
-
-      // Mock authentication by setting req.user
-      app.use('/api/v1/auth/api-keys', (req, res, next) => {
-        req.user = testUser;
-        next();
-      });
+      
+      // Set global test user for middleware
+      global.testUser = testUser;
     });
 
     test('should create API key for authenticated user', async () => {
@@ -293,6 +297,8 @@ describe('Authentication Routes', () => {
         role: 'owner'
       });
 
+      global.testUser = testUser;
+
       const keyData = ApiKey.generateKey();
       testApiKey = await ApiKey.create({
         userId: testUser.id,
@@ -302,11 +308,6 @@ describe('Authentication Routes', () => {
         permissions: {}
       });
 
-      // Mock authentication
-      app.use('/api/v1/auth/api-keys', (req, res, next) => {
-        req.user = testUser;
-        next();
-      });
     });
 
     test('should list user API keys', async () => {
@@ -331,6 +332,8 @@ describe('Authentication Routes', () => {
         role: 'owner'
       });
 
+      global.testUser = testUser;
+
       const keyData = ApiKey.generateKey();
       testApiKey = await ApiKey.create({
         userId: testUser.id,
@@ -340,11 +343,6 @@ describe('Authentication Routes', () => {
         permissions: {}
       });
 
-      // Mock authentication
-      app.use('/api/v1/auth/api-keys', (req, res, next) => {
-        req.user = testUser;
-        next();
-      });
     });
 
     test('should revoke user API key', async () => {

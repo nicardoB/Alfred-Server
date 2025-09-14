@@ -7,15 +7,31 @@ import { getDatabase } from '../config/database.js';
 export function defineCostUsageModel(sequelize) {
   const CostUsage = sequelize.define('CostUsage', {
     id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    userId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'Users',
+        key: 'id'
+      },
+      onDelete: 'CASCADE',
+      comment: 'User who incurred this cost'
+    },
+    toolContext: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      defaultValue: 'chat',
+      comment: 'Alfred tool that generated this cost (chat, poker, code, voice, etc.)'
     },
     provider: {
       type: DataTypes.STRING,
       allowNull: false,
       validate: {
-        isIn: [['claude', 'openai', 'copilot']]
+        isIn: [['claude', 'openai', 'copilot', 'github']]
       }
     },
     requests: {
@@ -42,6 +58,24 @@ export function defineCostUsageModel(sequelize) {
       type: DataTypes.STRING,
       allowNull: true
     },
+    conversationId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'Conversations',
+        key: 'id'
+      },
+      comment: 'Associated conversation if applicable'
+    },
+    messageId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'Messages',
+        key: 'id'
+      },
+      comment: 'Associated message if applicable'
+    },
     lastReset: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW
@@ -51,10 +85,24 @@ export function defineCostUsageModel(sequelize) {
     timestamps: true,
     indexes: [
       {
-        fields: ['provider']
+        fields: ['userId', 'toolContext', 'createdAt'],
+        name: 'cost_usage_user_tool_time'
       },
       {
-        fields: ['createdAt']
+        fields: ['provider', 'model'],
+        name: 'cost_usage_provider_model'
+      },
+      {
+        fields: ['conversationId'],
+        name: 'cost_usage_conversation'
+      },
+      {
+        fields: ['messageId'],
+        name: 'cost_usage_message'
+      },
+      {
+        fields: ['createdAt'],
+        name: 'cost_usage_created'
       }
     ]
   });
@@ -65,8 +113,7 @@ export function defineCostUsageModel(sequelize) {
 // Initialize model when database is ready
 let CostUsage;
 
-export async function initializeCostUsageModel() {
-  const sequelize = getDatabase();
+export async function initializeCostUsageModel(sequelize) {
   if (sequelize && !CostUsage) {
     CostUsage = defineCostUsageModel(sequelize);
   }

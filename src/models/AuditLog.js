@@ -148,5 +148,8 @@ export async function initializeAuditLogModel(sequelize) {
 }
 
 export function getAuditLogModel() {
+  if (global.testModels?.AuditLog) {
+    return global.testModels.AuditLog;
+  }
   return AuditLog;
 }

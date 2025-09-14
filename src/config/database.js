@@ -5,6 +5,8 @@ import { initializeUserModel } from '../models/User.js';
 import { initializeSessionModel } from '../models/Session.js';
 import { initializeApiKeyModel } from '../models/ApiKey.js';
 import { initializeAuditLogModel } from '../models/AuditLog.js';
+import { initializeConversationModel } from '../models/Conversation.js';
+import { initializeMessageModel } from '../models/Message.js';
 
 let sequelize;
 
@@ -15,18 +17,28 @@ export async function setupDatabase() {
   try {
     logger.info('Setting up database connection...');
     
-    // Mock database setup for testing
+    // Test database setup with actual models
     if (process.env.NODE_ENV === 'test') {
-      logger.info('Using mock database for testing');
-      return true;
-    }
-    
-    // Use Railway PostgreSQL or fallback to SQLite for local development
-    const databaseUrl = process.env.DATABASE_URL;
-    
-    if (databaseUrl) {
-      // Railway PostgreSQL
-      sequelize = new Sequelize(databaseUrl, {
+      logger.info('Setting up test database with SQLite');
+      sequelize = new Sequelize({
+        dialect: 'sqlite',
+        storage: ':memory:',
+        logging: false
+      });
+    } else if (process.env.NODE_ENV === 'development' && !process.env.DATABASE_URL) {
+      logger.warn('Using SQLite for development - PostgreSQL recommended for production');
+      sequelize = new Sequelize({
+        dialect: 'sqlite',
+        storage: './data/alfred_unified.db',
+        logging: false
+      });
+    } else {
+      // Production PostgreSQL
+      if (!process.env.DATABASE_URL) {
+        throw new Error('DATABASE_URL environment variable is required for unified Alfred MCP Server');
+      }
+      
+      sequelize = new Sequelize(process.env.DATABASE_URL, {
         dialect: 'postgres',
         logging: false,
         dialectOptions: {
@@ -36,13 +48,6 @@ export async function setupDatabase() {
           }
         }
       });
-    } else {
-      // Local SQLite fallback
-      sequelize = new Sequelize({
-        dialect: 'sqlite',
-        storage: './data/alfred.db',
-        logging: false
-      });
     }
     
     // Initialize models
@@ -51,18 +56,25 @@ export async function setupDatabase() {
     await initializeSessionModel(sequelize);
     await initializeApiKeyModel(sequelize);
     await initializeAuditLogModel(sequelize);
+    await initializeConversationModel(sequelize);
+    await initializeMessageModel(sequelize);
     
     // Set up model associations
     const User = (await import('../models/User.js')).getUserModel();
     const Session = (await import('../models/Session.js')).getSessionModel();
     const ApiKey = (await import('../models/ApiKey.js')).getApiKeyModel();
     const AuditLog = (await import('../models/AuditLog.js')).getAuditLogModel();
+    const Conversation = (await import('../models/Conversation.js')).getConversationModel();
+    const Message = (await import('../models/Message.js')).getMessageModel();
+    const CostUsage = (await import('../models/CostUsage.js')).getCostUsageModel();
     
-    if (User && Session && ApiKey && AuditLog) {
+    if (User && Session && ApiKey && AuditLog && Conversation && Message && CostUsage) {
       // User associations
       User.hasMany(Session, { foreignKey: 'userId', as: 'sessions' });
       User.hasMany(ApiKey, { foreignKey: 'userId', as: 'apiKeys' });
       User.hasMany(AuditLog, { foreignKey: 'userId', as: 'auditLogs' });
+      User.hasMany(Conversation, { foreignKey: 'userId', as: 'conversations' });
+      User.hasMany(CostUsage, { foreignKey: 'userId', as: 'costUsage' });
       
       // Session associations
       Session.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -72,6 +84,22 @@ export async function setupDatabase() {
       
       // AuditLog associations
       AuditLog.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+      
+      // Conversation associations
+      Conversation.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+      Conversation.hasMany(Message, { foreignKey: 'conversationId', as: 'messages' });
+      Conversation.hasMany(CostUsage, { foreignKey: 'conversationId', as: 'costs' });
+      
+      // Message associations
+      Message.belongsTo(Conversation, { foreignKey: 'conversationId', as: 'conversation' });
+      Message.belongsTo(Message, { foreignKey: 'parentMessageId', as: 'parentMessage' });
+      Message.hasMany(Message, { foreignKey: 'parentMessageId', as: 'replies' });
+      Message.hasMany(CostUsage, { foreignKey: 'messageId', as: 'costs' });
+      
+      // CostUsage associations
+      CostUsage.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+      CostUsage.belongsTo(Conversation, { foreignKey: 'conversationId', as: 'conversation' });
+      CostUsage.belongsTo(Message, { foreignKey: 'messageId', as: 'message' });
     }
     
     // Test the connection

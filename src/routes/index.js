@@ -5,6 +5,7 @@ import { sessionRoutes } from './session.js';
 import { healthRoutes } from './health.js';
 import { monitoringRoutes } from './monitoring.js';
 import authRoutes from './auth.js';
+import chatRoutes from './chat.js';
 
 export function setupRoutes(app, dependencies) {
   const { sessionManager, smartAIRouter, emailNotifier } = dependencies;
@@ -14,6 +15,7 @@ export function setupRoutes(app, dependencies) {
   
   // Mount route modules
   apiV1.use('/auth', authRoutes);
+  apiV1.use('/chat', chatRoutes);
   apiV1.use('/mcp', mcpRoutes(sessionManager, smartAIRouter));
   apiV1.use('/audio', audioRoutes(sessionManager, smartAIRouter));
   apiV1.use('/session', sessionRoutes(sessionManager));
@@ -30,6 +32,7 @@ export function setupRoutes(app, dependencies) {
       version: '1.0.0',
       endpoints: {
         auth: '/api/v1/auth',
+        chat: '/api/v1/chat',
         health: '/api/v1/health',
         session: '/api/v1/session',
         mcp: '/api/v1/mcp',
