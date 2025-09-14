@@ -2,18 +2,34 @@ import { logger } from '../utils/logger.js';
 import { authenticateSocket } from '../middleware/socketAuth.js';
 import { getConversationModel } from '../models/Conversation.js';
 import { getMessageModel } from '../models/Message.js';
+import { CostTracker } from '../monitoring/CostTracker.js';
 
 /**
  * WebSocket handler for real-time chat communication
  */
 export function setupWebSocket(io, dependencies) {
   const { sessionManager, smartAIRouter } = dependencies;
+  const costTracker = new CostTracker();
 
   // Authentication middleware for WebSocket
   io.use(authenticateSocket);
 
   io.on('connection', (socket) => {
     logger.info(`WebSocket client connected: ${socket.id}, user: ${socket.user?.email}`);
+    
+    // Join user-specific room for cost updates
+    socket.join(`user-${socket.user.id}`);
+    
+    // Send initial cost data
+    costTracker.getUsageStats().then(costData => {
+      socket.emit('cost-update', {
+        summary: costData.summary,
+        providers: costData.providers,
+        timestamp: new Date().toISOString()
+      });
+    }).catch(error => {
+      logger.error('Failed to send initial cost data:', error);
+    });
 
     // Handle conversation join
     socket.on('join-conversation', async (data) => {
@@ -137,6 +153,20 @@ export function setupWebSocket(io, dependencies) {
             await assistantMessage.updateContent(finalContent, metadata);
             await assistantMessage.markComplete();
             
+            // Track cost and emit cost update
+            if (metadata?.usage) {
+              const { inputTokens, outputTokens, provider, model } = metadata.usage;
+              await costTracker.trackUsage(provider, inputTokens, outputTokens, model, 'chat');
+              
+              // Get updated cost data and emit to user
+              const costData = await costTracker.getUsageStats();
+              io.to(`user-${socket.user.id}`).emit('cost-update', {
+                summary: costData.summary,
+                providers: costData.providers,
+                timestamp: new Date().toISOString()
+              });
+            }
+            
             // Emit completion
             io.to(conversationId).emit('message-complete', {
               messageId: assistantMessage.id,
@@ -217,6 +247,20 @@ export function setupWebSocket(io, dependencies) {
           onComplete: async (finalContent, metadata) => {
             await message.updateContent(finalContent, metadata);
             await message.markComplete();
+            
+            // Track cost and emit cost update for regeneration
+            if (metadata?.usage) {
+              const { inputTokens, outputTokens, provider, model } = metadata.usage;
+              await costTracker.trackUsage(provider, inputTokens, outputTokens, model, 'chat');
+              
+              // Get updated cost data and emit to user
+              const costData = await costTracker.getUsageStats();
+              io.to(`user-${socket.user.id}`).emit('cost-update', {
+                summary: costData.summary,
+                providers: costData.providers,
+                timestamp: new Date().toISOString()
+              });
+            }
             
             io.to(message.conversationId).emit('message-complete', {
               messageId,
