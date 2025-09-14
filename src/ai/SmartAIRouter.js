@@ -3,6 +3,7 @@ import { ClaudeProvider } from './providers/ClaudeProvider.js';
 import { OpenAIProvider } from './providers/OpenAIProvider.js';
 import { GitHubCopilotProvider } from './providers/GitHubCopilotProvider.js';
 import { OllamaProvider } from './providers/OllamaProvider.js';
+import { GPTRoutingProvider } from './providers/GPTRoutingProvider.js';
 import { getCostUsageModel } from '../models/CostUsage.js';
 
 /**
@@ -13,12 +14,17 @@ export class SmartAIRouter {
   constructor() {
     this.providers = {
       ollama: new OllamaProvider(), // Free local model - PRIMARY ROUTER
-      claude: new ClaudeProvider(process.env.CLAUDE_API_KEY, 'claude-3-5-sonnet-20241022'), // Sonnet for complex tasks
-      'claude-haiku': new ClaudeProvider(process.env.CLAUDE_API_KEY, 'claude-3-5-haiku-20241022'), // Haiku for simple tasks
+      claude: new ClaudeProvider(),
       openai: new OpenAIProvider(),
       copilot: new GitHubCopilotProvider()
     };
     
+    // AI-driven routing providers
+    this.routingProviders = {
+      gpt: new GPTRoutingProvider(), // GPT-4o Mini for smart routing decisions
+      ollama: this.providers.ollama  // Ollama can also make routing decisions
+    };
+
     this.activeRequests = new Map();
     this.routingStats = {
       ollama: 0,
@@ -284,46 +290,71 @@ export class SmartAIRouter {
    * Chat tool routing - general conversation with free-first approach
    */
   async routeChat(text, metadata, config) {
-    // Auto-detect code queries and route to code tool
+    // Try AI-driven routing first (smarter than hardcoded keywords)
+    const aiRoutingDecision = await this.getAIRoutingDecision(text, metadata);
+    if (aiRoutingDecision) {
+      return aiRoutingDecision;
+    }
+    
+    // Fallback to keyword-based routing if AI routing fails
     if (this.isCodeRelated(text)) {
       return this.routeCode(text, metadata, this.toolConfigs.code);
     }
     
-    // Check if Ollama is available for free routing
-    if (this.providers.ollama && await this.providers.ollama.isAvailable()) {
-      // Use Ollama's smart routing decision
-      const routingDecision = await this.providers.ollama.makeRoutingDecision(text, {
-        role: metadata.user?.role || 'demo',
-        costPreference: metadata.costPreference || 'free-first'
-      });
-      
-      switch (routingDecision) {
-        case 'LOCAL':
-          return 'ollama'; // Handle locally for free
-        case 'GPT4_MINI':
-          return 'openai'; // Cheap fallback
-        case 'CLAUDE_SONNET':
-          return 'claude'; // Complex reasoning
-        case 'COPILOT':
-          return 'copilot'; // Code tasks
-        default:
-          return 'ollama'; // Default to free
-      }
-    }
-    
-    // Fallback to original logic if Ollama unavailable
-    // Complex reasoning, analysis → Claude Sonnet
     if (this.isComplexReasoning(text)) {
       return 'claude';
     }
     
-    // Simple queries, quick responses → GPT-4o Mini (cheapest paid)
     if (this.isSimpleQuery(text)) {
       return 'openai';
     }
     
-    // Default to cheapest paid option
-    return 'openai';
+    return 'openai'; // Default to cheapest paid option
+  }
+
+  /**
+   * AI-driven routing decision with multiple fallback options
+   */
+  async getAIRoutingDecision(text, metadata = {}) {
+    const userContext = {
+      role: metadata.user?.role || 'demo',
+      costPreference: metadata.costPreference || 'balanced',
+      privacyMode: metadata.privacyMode || false
+    };
+
+    // Try Ollama first (free routing)
+    if (this.providers.ollama && await this.providers.ollama.isAvailable()) {
+      try {
+        const decision = await this.providers.ollama.makeRoutingDecision(text, userContext);
+        return this.mapRoutingDecision(decision);
+      } catch (error) {
+        logger.warn('Ollama routing failed:', error);
+      }
+    }
+
+    // Try GPT-4o Mini routing (cheap but reliable)
+    try {
+      const decision = await this.routingProviders.gpt.makeRoutingDecision(text, userContext);
+      return this.mapRoutingDecision(decision);
+    } catch (error) {
+      logger.warn('GPT routing failed:', error);
+    }
+
+    // No AI routing available
+    return null;
+  }
+
+  /**
+   * Map AI routing decisions to provider names
+   */
+  mapRoutingDecision(decision) {
+    const mapping = {
+      'LOCAL': 'ollama',
+      'GPT4_MINI': 'openai', 
+      'CLAUDE_SONNET': 'claude',
+      'COPILOT': 'copilot'
+    };
+    return mapping[decision] || 'openai';
   }
 
   /**
@@ -520,12 +551,14 @@ export class SmartAIRouter {
    */
   isCodeRelated(text) {
     const codeKeywords = [
-      'code', 'function', 'class', 'variable', 'bug', 'debug',
+      'function', 'class', 'variable', 'bug', 'debug',
       'programming', 'algorithm', 'syntax', 'compile', 'error',
       'javascript', 'python', 'java', 'kotlin', 'react', 'node'
     ];
     
-    return codeKeywords.some(keyword => text.includes(keyword));
+    // Only match if it's clearly about programming, not general "how to code"
+    return codeKeywords.some(keyword => text.toLowerCase().includes(keyword)) && 
+           !text.toLowerCase().includes('how to code');
   }
 
   /**
@@ -537,7 +570,7 @@ export class SmartAIRouter {
       'plan', 'architecture', 'design', 'research', 'complex'
     ];
     
-    return complexKeywords.some(keyword => text.includes(keyword)) || text.length > 200;
+    return complexKeywords.some(keyword => text.toLowerCase().includes(keyword)) || text.length > 300;
   }
 
   /**
