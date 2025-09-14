@@ -295,4 +295,89 @@ describe('MCP Routes', () => {
       expect(response.body.error).toBe('Session ID required');
     });
   });
+
+  describe('Error Handling', () => {
+    test('should handle missing sessionId in cancel request', async () => {
+      const response = await request(app)
+        .post('/mcp/cancel')
+        .send({ requestId: 'req-123' })
+        .expect(400);
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Session ID required'
+      });
+    });
+
+    test('should handle cancel request errors', async () => {
+      mockSmartAIRouter.cancelRequest.mockRejectedValue(new Error('Cancel failed'));
+
+      const response = await request(app)
+        .post('/mcp/cancel')
+        .send({ sessionId: 'session-123', requestId: 'req-123' })
+        .expect(500);
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Failed to cancel request'
+      });
+    });
+
+    test('should handle update metadata errors', async () => {
+      mockSessionManager.getSession.mockResolvedValue({ id: 'session-123' });
+      mockSessionManager.updateSessionMetadata.mockRejectedValue(new Error('Update failed'));
+
+      const response = await request(app)
+        .post('/mcp/metadata')
+        .send({ sessionId: 'session-123', metadata: { key: 'value' } })
+        .expect(500);
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Failed to update metadata'
+      });
+    });
+
+    test('should handle process text command errors', async () => {
+      mockSessionManager.getSession.mockResolvedValue({ id: 'session-123' });
+      mockSmartAIRouter.processTextCommand.mockRejectedValue(new Error('Processing failed'));
+
+      const response = await request(app)
+        .post('/mcp/text')
+        .send({ sessionId: 'session-123', text: 'test command' })
+        .expect(500);
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Failed to process text command'
+      });
+    });
+
+    test('should handle create session errors', async () => {
+      mockSessionManager.createSession.mockRejectedValue(new Error('Session creation failed'));
+
+      const response = await request(app)
+        .post('/mcp/connect')
+        .send({ metadata: { tool: 'chat' } })
+        .expect(500);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Failed to create session');
+      expect(response.body.timestamp).toBeDefined();
+    });
+
+    test('should handle end session errors', async () => {
+      mockSessionManager.endSession.mockRejectedValue(new Error('End session failed'));
+
+      const response = await request(app)
+        .post('/mcp/disconnect')
+        .send({ sessionId: 'session-123' })
+        .expect(500);
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Failed to end session'
+      });
+    });
+  });
 });

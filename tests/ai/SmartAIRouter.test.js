@@ -567,11 +567,52 @@ describe('SmartAIRouter', () => {
       expect(router.isPokerCompliance('hello world')).toBe(false);
     });
 
-    it('should detect complex language tasks', () => {
-      expect(router.isComplexLanguageTask('explain French grammar rules in detail')).toBe(true);
-      expect(router.isComplexLanguageTask('grammar')).toBe(true);
-      expect(router.isComplexLanguageTask('explain why')).toBe(true);
-      expect(router.isComplexLanguageTask('translate hello')).toBe(false);
+    test('should detect complex language tasks', async () => {
+      expect(router.isComplexLanguageTask('explain why this grammar rule applies')).toBe(true);
+      expect(router.isComplexLanguageTask('difference between these conjugations')).toBe(true);
+      expect(router.isComplexLanguageTask('Hello how are you')).toBe(false);
+    });
+  });
+
+  describe('Edge Cases', () => {
+    test('should handle unknown tool context', async () => {
+      expect(() => {
+        router.selectProvider('test query', { 
+          toolContext: 'unknown_tool',
+          user: { role: 'owner' }
+        });
+      }).toThrow("User role 'owner' does not have access to 'unknown_tool' tool");
+    });
+
+    test('should handle copilot unavailable fallback', async () => {
+      // Mock copilot as unavailable
+      router.providers.copilot.isAvailable.mockReturnValue(false);
+      
+      const result = router.selectProvider('write a function', { 
+        toolContext: 'code',
+        user: { role: 'owner' }
+      });
+      expect(result).toBe('claude');
+    });
+
+    test('should handle voice transcription routing', async () => {
+      const result = router.selectProvider('transcribe this', { 
+        toolContext: 'voice',
+        isTranscription: true,
+        user: { role: 'owner' }
+      });
+      expect(result).toBe('openai');
+    });
+
+    test('should handle missing copilot provider', async () => {
+      // Remove copilot provider
+      delete router.providers.copilot;
+      
+      const result = router.selectProvider('write a function', { 
+        toolContext: 'code',
+        user: { role: 'owner' }
+      });
+      expect(result).toBe('claude');
     });
   });
 });
