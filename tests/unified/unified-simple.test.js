@@ -431,4 +431,39 @@ describe('Unified Alfred System - Simple Test', () => {
       expect(conversation.costs).toBeDefined();
     });
   });
+
+  describe('Smart AI Router Integration', () => {
+    it('should enforce permissions by tool context', async () => {
+      const { SmartAIRouter } = await import('../../src/ai/SmartAIRouter.js');
+      const router = new SmartAIRouter();
+
+      // Test poker routing for owner
+      const pokerProvider = router.selectProvider('Analyze this hand: AA vs KK preflop', {
+        toolContext: 'poker',
+        user: { role: 'owner', permissions: { poker: true } }
+      });
+      expect(pokerProvider).toBe('claude');
+
+      // Test permission denial
+      expect(() => {
+        router.selectProvider('Analyze this code', {
+          toolContext: 'code',
+          user: { role: 'demo', permissions: { chat: true } }
+        });
+      }).toThrow('does not have access to');
+    });
+
+    it('should handle cost constraints by user role', async () => {
+      const { SmartAIRouter } = await import('../../src/ai/SmartAIRouter.js');
+      const router = new SmartAIRouter();
+
+      // Test that cost-optimized routing works for family users
+      const provider = router.selectProvider('Simple question', {
+        toolContext: 'chat',
+        user: { role: 'family', permissions: { chat: true } },
+        estimatedCost: 0.05
+      });
+      expect(provider).toBeDefined();
+    });
+  });
 });

@@ -36,6 +36,7 @@ export const ROLE_PERMISSIONS = {
   
   family: {
     // Limited system access
+    'system.admin': false,
     'system.config': false,
     'system.users': false,
     'system.audit': false,
@@ -64,6 +65,7 @@ export const ROLE_PERMISSIONS = {
   
   friend: {
     // No system access
+    'system.admin': false,
     'system.config': false,
     'system.users': false,
     'system.audit': false,
@@ -92,6 +94,7 @@ export const ROLE_PERMISSIONS = {
   
   demo: {
     // No system access
+    'system.admin': false,
     'system.config': false,
     'system.users': false,
     'system.audit': false,
@@ -154,7 +157,7 @@ export function getRolePermissions(role) {
  * Get budget limit for a user role
  */
 export function getRoleBudget(role) {
-  return ROLE_BUDGETS[role] || ROLE_BUDGETS.demo;
+  return ROLE_BUDGETS.hasOwnProperty(role) ? ROLE_BUDGETS[role] : ROLE_BUDGETS.demo;
 }
 
 /**

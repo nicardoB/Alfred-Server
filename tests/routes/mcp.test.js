@@ -1,14 +1,33 @@
 import request from 'supertest';
 import { jest } from '@jest/globals';
 import express from 'express';
-import { mcpRoutes } from '../../src/routes/mcp.js';
+
+// Mock authentication middleware
+jest.unstable_mockModule('../../src/middleware/authentication.js', () => ({
+  authenticate: (req, res, next) => {
+    req.user = {
+      id: 'test-user-id',
+      email: 'test@example.com',
+      role: 'friend',
+      permissions: {
+        chat: true,
+        poker: true,
+        code: true,
+        voice: true
+      }
+    };
+    next();
+  },
+  requireFriend: (req, res, next) => next(),
+  rateLimit: (limit) => (req, res, next) => next()
+}));
 
 describe('MCP Routes', () => {
   let app;
   let mockSessionManager;
   let mockSmartAIRouter;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Mock dependencies
     mockSessionManager = {
       createSession: jest.fn(),
@@ -21,6 +40,9 @@ describe('MCP Routes', () => {
       processTextCommand: jest.fn(),
       cancelRequest: jest.fn()
     };
+
+    // Import MCP routes after mocking
+    const { mcpRoutes } = await import('../../src/routes/mcp.js');
 
     // Setup test app
     app = express();

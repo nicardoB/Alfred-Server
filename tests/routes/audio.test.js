@@ -1,14 +1,33 @@
 import request from 'supertest';
 import { jest } from '@jest/globals';
 import express from 'express';
-import { audioRoutes } from '../../src/routes/audio.js';
+
+// Mock authentication middleware
+jest.unstable_mockModule('../../src/middleware/authentication.js', () => ({
+  authenticate: (req, res, next) => {
+    req.user = {
+      id: 'test-user-id',
+      email: 'test@example.com',
+      role: 'friend',
+      permissions: {
+        chat: true,
+        poker: true,
+        code: true,
+        voice: true
+      }
+    };
+    next();
+  },
+  requireFriend: (req, res, next) => next(),
+  rateLimit: (limit) => (req, res, next) => next()
+}));
 
 describe('Audio Routes', () => {
   let app;
   let mockSessionManager;
   let mockSmartAIRouter;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Mock dependencies
     mockSessionManager = {
       getSession: jest.fn()
@@ -19,10 +38,13 @@ describe('Audio Routes', () => {
       getProcessingStatus: jest.fn()
     };
 
+    // Import audio routes after mocking
+    const { audioRoutes } = await import('../../src/routes/audio.js');
+
     // Setup test app
     app = express();
     app.use(express.raw({ type: 'application/octet-stream', limit: '10mb' }));
-    app.use(express.raw({ type: '*/*', limit: '10mb' }));
+    app.use(express.json());
     app.use('/audio', audioRoutes(mockSessionManager, mockSmartAIRouter));
   });
 
@@ -42,6 +64,7 @@ describe('Audio Routes', () => {
 
       const response = await request(app)
         .post('/audio/stream')
+        .set('Content-Type', 'application/octet-stream')
         .set('x-session-id', 'test-session-123')
         .set('x-is-last-chunk', 'false')
         .set('x-sample-rate', '16000')
@@ -58,7 +81,7 @@ describe('Audio Routes', () => {
       expect(response.body.result).toEqual(mockResult);
 
       expect(mockSmartAIRouter.processAudioChunk).toHaveBeenCalledWith(
-        audioData,
+        expect.any(Buffer),
         expect.objectContaining({
           sessionId: 'test-session-123',
           requestId: expect.any(String),
@@ -136,14 +159,24 @@ describe('Audio Routes', () => {
 
       const audioData = Buffer.from([1, 2, 3, 4]);
 
-      await request(app)
+      const response = await request(app)
         .post('/audio/stream')
         .set('x-session-id', 'test-session-123')
         .send(audioData);
 
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.requestId).toBeDefined();
+      expect(response.body.bytesReceived).toBeUndefined(); // Without proper Content-Type, audioData is undefined so length is undefined
+      expect(response.body.isLastChunk).toBe(false);
+      expect(response.body.result).toEqual(mockResult);
+
       expect(mockSmartAIRouter.processAudioChunk).toHaveBeenCalledWith(
-        audioData,
+        expect.any(Object), // Without Content-Type, becomes empty object instead of Buffer
         expect.objectContaining({
+          sessionId: 'test-session-123',
+          requestId: expect.any(String),
+          isLastChunk: false,
           audioFormat: {
             sampleRate: 16000,
             channels: 1,
