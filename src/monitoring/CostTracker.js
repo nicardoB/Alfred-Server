@@ -266,6 +266,7 @@ export class CostTracker {
    * Estimate tokens from text (rough approximation)
    */
   estimateTokens(text) {
+    if (!text) return 0;
     // Rough estimation: ~4 characters per token for English text
     return Math.ceil(text.length / 4);
   }

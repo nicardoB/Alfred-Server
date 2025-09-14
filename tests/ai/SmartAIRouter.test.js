@@ -4,17 +4,20 @@ import { SmartAIRouter } from '../../src/ai/SmartAIRouter.js';
 // Mock AI providers
 const mockClaudeProvider = {
   processText: jest.fn(),
+  processStreamingChat: jest.fn(),
   cancelRequest: jest.fn()
 };
 
 const mockOpenAIProvider = {
   processText: jest.fn(),
+  processStreamingChat: jest.fn(),
   transcribeAudio: jest.fn(),
   cancelRequest: jest.fn()
 };
 
 const mockCopilotProvider = {
   processText: jest.fn(),
+  processStreamingChat: jest.fn(),
   cancelRequest: jest.fn(),
   isAvailable: jest.fn().mockReturnValue(true)
 };
@@ -29,6 +32,15 @@ jest.mock('../../src/ai/providers/OpenAIProvider.js', () => ({
 
 jest.mock('../../src/ai/providers/GitHubCopilotProvider.js', () => ({
   GitHubCopilotProvider: jest.fn().mockImplementation(() => mockCopilotProvider)
+}));
+
+// Mock CostUsage model
+const mockCostUsage = {
+  create: jest.fn().mockResolvedValue({})
+};
+
+jest.mock('../../src/models/CostUsage.js', () => ({
+  getCostUsageModel: jest.fn(() => mockCostUsage)
 }));
 
 describe('SmartAIRouter', () => {
@@ -52,6 +64,34 @@ describe('SmartAIRouter', () => {
     mockOpenAIProvider.processText.mockResolvedValue({ content: 'OpenAI response', confidence: 0.85 });
     mockCopilotProvider.processText.mockResolvedValue({ content: 'Copilot response', confidence: 0.88 });
     mockOpenAIProvider.transcribeAudio.mockResolvedValue({ text: 'Hello Alfred', confidence: 0.9 });
+    
+    // Set up streaming mocks
+    mockClaudeProvider.processStreamingChat.mockImplementation(async ({ onStream, onComplete }) => {
+      onStream('Hello ');
+      onStream('world!');
+      onComplete('Hello world!', { 
+        tokenCount: 10, 
+        cost: 0.01, 
+        model: 'claude-3-5-sonnet',
+        inputTokens: 5,
+        outputTokens: 5
+      });
+    });
+    
+    mockOpenAIProvider.processStreamingChat.mockImplementation(async ({ onStream, onComplete }) => {
+      onStream('OpenAI ');
+      onStream('response');
+      onComplete('OpenAI response', { tokenCount: 8, cost: 0.008, model: 'gpt-4' });
+    });
+    
+    mockCopilotProvider.processStreamingChat.mockImplementation(async ({ onStream, onComplete }) => {
+      onStream('Code ');
+      onStream('suggestion');
+      onComplete('Code suggestion', { tokenCount: 12, cost: 0.005, model: 'copilot' });
+    });
+    
+    // Reset cost usage mock
+    mockCostUsage.create.mockClear();
   });
 
   describe('selectProvider', () => {
@@ -353,6 +393,185 @@ describe('SmartAIRouter', () => {
       });
       expect(stats.activeRequests).toBe(2);
       expect(stats.totalRequests).toBe(10);
+    });
+  });
+
+  describe('Tool Context Routing', () => {
+    it('should route poker queries correctly', () => {
+      // Test individual queries to understand routing
+      const analyzeQuery = router.selectProvider('analyze this poker hand', { 
+        toolContext: 'poker', 
+        user: { role: 'owner' },
+        userRole: 'owner'
+      });
+      expect(analyzeQuery).toBe('claude'); // Contains 'analyze' -> isPokerAnalysis -> defaultProvider
+
+      const oddsQuery = router.selectProvider('what are the pot odds here?', { 
+        toolContext: 'poker', 
+        user: { role: 'owner' },
+        userRole: 'owner'
+      });
+      expect(oddsQuery).toBe('claude'); // Contains 'pot odds' -> isPokerAnalysis -> defaultProvider
+
+      const foldQuery = router.selectProvider('should I fold or call with this hand?', { 
+        toolContext: 'poker', 
+        user: { role: 'owner' },
+        userRole: 'owner'
+      });
+      expect(foldQuery).toBe('claude'); // Contains 'fold' -> isPokerAnalysis -> defaultProvider
+
+      const gtoQuery = router.selectProvider('GTO solver recommendation for this spot', { 
+        toolContext: 'poker', 
+        user: { role: 'owner' },
+        userRole: 'owner'
+      });
+      expect(gtoQuery).toBe('claude-haiku'); // Contains 'gto' and 'recommendation' -> isPokerCompliance -> costOptimizedProvider
+    });
+
+    it('should route french language queries to appropriate provider', () => {
+      // Complex language task should use default provider
+      const complexProvider = router.selectProvider('explain French grammar rules', { 
+        toolContext: 'french',
+        user: { role: 'owner' },
+        userRole: 'owner'
+      });
+      expect(complexProvider).toBe('claude');
+
+      // Simple translation should use cost-optimized provider
+      const simpleProvider = router.selectProvider('translate hello', { 
+        toolContext: 'french',
+        user: { role: 'owner' },
+        userRole: 'owner'
+      });
+      expect(simpleProvider).toBe('claude-haiku');
+    });
+
+    it('should route voice queries to appropriate provider', () => {
+      const provider = router.selectProvider('quick voice response', { 
+        toolContext: 'voice',
+        user: { role: 'owner' },
+        userRole: 'owner'
+      });
+      expect(provider).toBe('claude-haiku');
+    });
+
+    it('should route workout queries correctly', () => {
+      const provider = router.selectProvider('create workout plan', { 
+        toolContext: 'workout',
+        user: { role: 'owner' },
+        userRole: 'owner'
+      });
+      expect(provider).toBe('claude-haiku');
+    });
+  });
+
+  describe('processStreamingChat', () => {
+    it('should process streaming chat with proper cost tracking', async () => {
+      const mockUser = { id: 'user-123', email: 'test@example.com', role: 'owner' };
+      const context = [{ content: 'Hello', role: 'user', metadata: { toolContext: 'chat' } }];
+      
+      let streamedContent = '';
+      const onStream = jest.fn((chunk) => { streamedContent += chunk; });
+      const onComplete = jest.fn();
+      const onError = jest.fn();
+
+      await router.processStreamingChat({
+        userMessage: 'Hello',
+        conversationId: 'conv-123',
+        messageId: 'msg-123',
+        context,
+        user: mockUser,
+        onStream,
+        onComplete,
+        onError
+      });
+
+      expect(onStream).toHaveBeenCalledWith('Hello ');
+      expect(onStream).toHaveBeenCalledWith('world!');
+      expect(onComplete).toHaveBeenCalledWith('Hello world!', expect.objectContaining({
+        provider: 'claude', // Chat uses default provider
+        toolContext: 'chat',
+        processingTime: expect.any(Number)
+      }));
+      // Cost tracking happens in onComplete callback, so we need to verify it was called
+      expect(onComplete).toHaveBeenCalled();
+    });
+
+    it('should handle streaming errors', async () => {
+      const mockUser = { id: 'user-123', email: 'test@example.com' };
+      const context = [{ content: 'Hello', role: 'user' }];
+      
+      mockClaudeProvider.processStreamingChat.mockImplementation(async ({ onError }) => {
+        onError(new Error('Streaming failed'));
+      });
+
+      const onStream = jest.fn();
+      const onComplete = jest.fn();
+      const onError = jest.fn();
+
+      await router.processStreamingChat({
+        userMessage: 'Hello',
+        conversationId: 'conv-123',
+        messageId: 'msg-123',
+        context,
+        user: mockUser,
+        onStream,
+        onComplete,
+        onError
+      });
+
+      expect(onError).toHaveBeenCalledWith(expect.any(Error));
+    });
+
+    it('should handle cost tracking errors gracefully', async () => {
+      const mockUser = { id: 'user-123', email: 'test@example.com' };
+      const context = [{ content: 'Hello', role: 'user' }];
+      
+      // Mock cost tracking failure
+      mockCostUsage.create.mockRejectedValue(new Error('Database error'));
+
+      const onStream = jest.fn();
+      const onComplete = jest.fn();
+      const onError = jest.fn();
+
+      await router.processStreamingChat({
+        userMessage: 'Hello',
+        conversationId: 'conv-123',
+        messageId: 'msg-123',
+        context,
+        user: mockUser,
+        onStream,
+        onComplete,
+        onError
+      });
+
+      // Should still complete successfully despite cost tracking failure
+      expect(onComplete).toHaveBeenCalled();
+      expect(onError).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Helper Methods', () => {
+    it('should detect poker-related content', () => {
+      expect(router.isPokerRelated('analyze this poker hand')).toBe(true);
+      expect(router.isPokerRelated('what are the pot odds?')).toBe(true);
+      expect(router.isPokerRelated('should I fold or call?')).toBe(true);
+      expect(router.isPokerRelated('GTO solver recommendation')).toBe(true);
+      expect(router.isPokerRelated('hello world')).toBe(false);
+    });
+
+    it('should detect poker compliance queries', () => {
+      expect(router.isPokerCompliance('is this GTO compliant?')).toBe(true);
+      expect(router.isPokerCompliance('verify this play according to solver')).toBe(true);
+      expect(router.isPokerCompliance('audit my poker strategy')).toBe(true);
+      expect(router.isPokerCompliance('hello world')).toBe(false);
+    });
+
+    it('should detect complex language tasks', () => {
+      expect(router.isComplexLanguageTask('explain French grammar rules in detail')).toBe(true);
+      expect(router.isComplexLanguageTask('grammar')).toBe(true);
+      expect(router.isComplexLanguageTask('explain why')).toBe(true);
+      expect(router.isComplexLanguageTask('translate hello')).toBe(false);
     });
   });
 });

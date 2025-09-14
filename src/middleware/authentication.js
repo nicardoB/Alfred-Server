@@ -135,6 +135,21 @@ export async function authenticate(req, res, next) {
     }
 
     if (authResult) {
+      // Check user status after successful authentication
+      if (!authResult.user.isActive) {
+        return res.status(401).json({
+          error: 'Authentication required',
+          message: 'Please provide a valid API key or JWT token'
+        });
+      }
+      
+      if (!authResult.user.approved) {
+        return res.status(401).json({
+          error: 'Authentication required',
+          message: 'Please provide a valid API key or JWT token'
+        });
+      }
+
       // Authentication successful
       req.user = authResult.user;
       req.authType = authResult.authType;
