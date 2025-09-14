@@ -31,9 +31,9 @@ export class SmartAIRouter {
     // Tool-specific routing configurations
     this.toolConfigs = {
       chat: {
-        defaultProvider: 'ollama', // Free local model as primary
-        fallbackProvider: 'openai', // GPT-4o Mini as cheap fallback
-        costOptimizedProvider: 'ollama',
+        defaultProvider: 'openai', // GPT-4o Mini as reliable default
+        fallbackProvider: 'openai', // GPT-4o Mini as fallback
+        costOptimizedProvider: 'ollama', // Ollama when available
         maxCostPerRequest: { owner: 1.0, family: 0.1, friend: 0.02, demo: 0.01 }
       },
       poker: {
