@@ -61,27 +61,24 @@ jest.unstable_mockModule('../../src/middleware/authentication.js', () => ({
   requirePermission: (permission) => (req, res, next) => next()
 }));
 
-// Mock model getters - these need to return the actual models
-let testModels = {};
-
+// Mock model getters - need to be available immediately
 jest.unstable_mockModule('../../src/models/Conversation.js', () => ({
-  getConversationModel: () => testModels.Conversation
+  getConversationModel: () => global.testModels?.Conversation
 }));
 
 jest.unstable_mockModule('../../src/models/Message.js', () => ({
-  getMessageModel: () => testModels.Message
+  getMessageModel: () => global.testModels?.Message
 }));
 
 jest.unstable_mockModule('../../src/models/CostUsage.js', () => ({
-  getCostUsageModel: () => testModels.CostUsage
+  getCostUsageModel: () => global.testModels?.CostUsage
 }));
-
-const { default: chatRoutes } = await import('../../src/routes/chat.js');
 
 describe('Chat API Routes', () => {
   let app;
   let sequelize;
   let User, Conversation, Message, CostUsage;
+  let chatRoutes;
 
   beforeAll(async () => {
     // Setup test database
@@ -108,15 +105,17 @@ describe('Chat API Routes', () => {
     
     await sequelize.sync();
 
-    // Set up model references for mocks
-    testModels = {
+    // Set up global model references BEFORE importing routes
+    global.testModels = {
       User,
       Conversation,
       Message,
       CostUsage
     };
-    
-    global.testModels = testModels;
+
+    // Import chat routes after models are available
+    const { default: importedChatRoutes } = await import('../../src/routes/chat.js');
+    chatRoutes = importedChatRoutes;
 
     // Setup Express app
     app = express();

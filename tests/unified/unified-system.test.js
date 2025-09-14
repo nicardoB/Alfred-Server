@@ -9,6 +9,42 @@ import { getCostUsageModel } from '../../src/models/CostUsage.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
+// Mock authentication middleware for testing
+import { jest } from '@jest/globals';
+
+jest.unstable_mockModule('../../src/middleware/authentication.js', () => ({
+  authenticate: (req, res, next) => {
+    // Mock authenticated user based on Authorization header
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'test-secret');
+        req.user = {
+          id: decoded.userId,
+          email: decoded.email,
+          role: decoded.role,
+          permissions: {
+            chat: true,
+            poker: true,
+            code: true,
+            voice: true,
+            monitoring: true
+          }
+        };
+        next();
+      } catch (error) {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+    } else {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+  },
+  requireRole: (roles) => (req, res, next) => next(),
+  requireOwner: (req, res, next) => next(),
+  requirePermission: (permission) => (req, res, next) => next()
+}));
+
 // Create test app without top-level await
 const createTestApp = async () => {
   const app = express();
@@ -55,7 +91,7 @@ describe('Unified Alfred System', () => {
     
     testUser = await User.create({
       email: 'test@unified.com',
-      hashedPassword,
+      hashedPassword: hashedPassword,
       role: 'owner',
       permissions: {
         chat: true,
@@ -74,6 +110,14 @@ describe('Unified Alfred System', () => {
       process.env.JWT_SECRET || 'test-secret',
       { expiresIn: '1h' }
     );
+
+    // Create initial test conversation to ensure testConversation is available
+    const Conversation = getConversationModel();
+    testConversation = await Conversation.create({
+      userId: testUser.id,
+      title: 'Initial Test Conversation',
+      toolContext: 'poker'
+    });
   });
 
   afterAll(async () => {
@@ -158,11 +202,11 @@ describe('Unified Alfred System', () => {
     test('should track costs with tool context', async () => {
       const CostUsage = getCostUsageModel();
       
-      // Simulate cost usage
+      // Simulate cost usage - fix provider names to match validation
       await CostUsage.create({
         userId: testUser.id,
         toolContext: 'poker',
-        provider: 'claude',
+        provider: 'anthropic',
         model: 'claude-3-5-sonnet-20241022',
         conversationId: testConversation.id,
         requests: 1,
@@ -174,7 +218,7 @@ describe('Unified Alfred System', () => {
       await CostUsage.create({
         userId: testUser.id,
         toolContext: 'chat',
-        provider: 'claude-haiku',
+        provider: 'anthropic',
         model: 'claude-3-5-haiku-20241022',
         requests: 1,
         inputTokens: 100,
@@ -270,7 +314,7 @@ describe('Unified Alfred System', () => {
       const cost = await CostUsage.create({
         userId: testUser.id,
         toolContext: 'poker',
-        provider: 'claude',
+        provider: 'anthropic',
         conversationId: testConversation.id,
         messageId: message.id,
         totalCost: 0.01
