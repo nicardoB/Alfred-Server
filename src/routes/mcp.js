@@ -87,6 +87,8 @@ export function mcpRoutes(sessionManager, smartAIRouter) {
 
       const requestId = uuidv4();
       
+      logger.info(`MCP DEBUG - About to call SmartAIRouter with userId: ${req.user?.id}`);
+      
       // Process text command through Smart AI Router
       const aiResult = await smartAIRouter.processTextCommand(text, {
         sessionId,
@@ -96,6 +98,12 @@ export function mcpRoutes(sessionManager, smartAIRouter) {
           userId: req.user?.id, // Add user ID for cost tracking
           toolContext: metadata.toolContext || 'chat'
         }
+      });
+      
+      logger.info(`MCP DEBUG - SmartAIRouter returned:`, { 
+        provider: aiResult.provider, 
+        hasResponse: !!aiResult.response,
+        responseKeys: aiResult.response ? Object.keys(aiResult.response) : []
       });
 
       // Flatten the response structure for easier parsing - no nested objects
