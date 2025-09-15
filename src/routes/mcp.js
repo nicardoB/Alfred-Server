@@ -77,8 +77,11 @@ export function mcpRoutes(sessionManager, smartAIRouter) {
         });
       }
 
+      logger.info(`MCP DEBUG - Looking for session: ${sessionId}`);
       const session = await sessionManager.getSession(sessionId);
+      logger.info(`MCP DEBUG - Session found:`, !!session);
       if (!session) {
+        logger.warn(`MCP DEBUG - Session ${sessionId} not found, returning 404`);
         return res.status(404).json({
           success: false,
           error: 'Session not found'
