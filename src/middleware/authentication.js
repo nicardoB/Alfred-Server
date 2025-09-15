@@ -117,26 +117,43 @@ async function authenticateJWT(token) {
 export async function authenticate(req, res, next) {
   const startTime = Date.now();
   const { apiKey, jwtToken } = extractToken(req);
-  
+
+  console.log('AUTH DEBUG - Request:', {
+    url: req.url,
+    method: req.method,
+    hasApiKey: !!apiKey,
+    hasJwtToken: !!jwtToken,
+    apiKeyPrefix: apiKey ? apiKey.substring(0, 10) + '...' : null,
+    jwtPrefix: jwtToken ? jwtToken.substring(0, 20) + '...' : null
+  });
+
   let authResult = null;
-  let authMethod = 'none';
+  let authMethod = null;
 
   try {
     // Try API key authentication first
     if (apiKey) {
+      console.log('AUTH DEBUG - Attempting API key auth');
       authResult = await authenticateApiKey(apiKey);
       authMethod = 'api_key';
+      console.log('AUTH DEBUG - API key result:', !!authResult);
     }
     
     // Fall back to JWT authentication
     if (!authResult && jwtToken) {
+      console.log('AUTH DEBUG - Attempting JWT auth');
       authResult = await authenticateJWT(jwtToken);
       authMethod = 'jwt';
+      console.log('AUTH DEBUG - JWT result:', !!authResult);
     }
 
+    console.log('AUTH DEBUG - Final auth result:', !!authResult);
+
     if (authResult) {
+      console.log('AUTH DEBUG - User active check:', authResult.user.isActive);
       // Check user status after successful authentication
       if (!authResult.user.isActive) {
+        console.log('AUTH DEBUG - User inactive, rejecting');
         return res.status(401).json({
           error: 'Authentication required',
           message: 'Please provide a valid API key or JWT token'
@@ -144,6 +161,7 @@ export async function authenticate(req, res, next) {
       }
       
       if (!authResult.user.approved) {
+        console.log('AUTH DEBUG - User not approved, rejecting');
         return res.status(401).json({
           error: 'Authentication required',
           message: 'Please provide a valid API key or JWT token'
@@ -151,6 +169,7 @@ export async function authenticate(req, res, next) {
       }
 
       // Authentication successful
+      console.log('AUTH DEBUG - Authentication successful');
       req.user = authResult.user;
       req.authType = authResult.authType;
       req.session = authResult.session;
@@ -174,28 +193,13 @@ export async function authenticate(req, res, next) {
       }
 
       return next();
-    }
-
-    // Authentication failed
-    const AuditLog = getAuditLogModel();
-    if (AuditLog) {
-      await AuditLog.logSecurityEvent({
-        action: 'unauthorized_access',
-        method: req.method,
-        endpoint: req.path,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent'),
-        success: false,
-        statusCode: 401,
-        errorMessage: `Authentication failed using ${authMethod}`,
-        duration: Date.now() - startTime
+    } else {
+      console.log('AUTH DEBUG - No authentication found, rejecting');
+      return res.status(401).json({
+        error: 'Authentication required',
+        message: 'Please provide a valid API key or JWT token'
       });
     }
-
-    return res.status(401).json({
-      error: 'Authentication required',
-      message: 'Please provide a valid API key or JWT token'
-    });
 
   } catch (error) {
     console.error('Authentication middleware error:', error);
