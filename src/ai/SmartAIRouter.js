@@ -108,22 +108,27 @@ export class SmartAIRouter {
       
       // Track usage for cost monitoring
       try {
-        logger.info(`DEBUG: Provider ${provider} response structure:`, JSON.stringify(response, null, 2));
+        logger.info(`DEBUG: Provider ${provider} response has usage:`, !!response.usage);
+        logger.info(`DEBUG: Response keys:`, Object.keys(response));
         if (response.usage) {
           const { inputTokens = 0, outputTokens = 0 } = response.usage;
           logger.info(`DEBUG: Tracking usage for ${provider}: ${inputTokens} input, ${outputTokens} output tokens, userId: ${metadata.userId}`);
-          await costTracker.trackUsage(provider, inputTokens, outputTokens, {
+          
+          const trackingResult = await costTracker.trackUsage(provider, inputTokens, outputTokens, {
             userId: metadata.userId,
             toolContext: metadata.toolContext || 'chat',
             conversationId: metadata.conversationId,
             sessionId
           });
+          
+          logger.info(`DEBUG: CostTracker result:`, trackingResult);
           logger.info(`Cost tracked for ${provider}: ${inputTokens} input, ${outputTokens} output tokens`);
         } else {
           logger.warn(`No usage data returned from ${provider} for cost tracking. Response keys: ${Object.keys(response)}`);
         }
       } catch (costError) {
         logger.error(`Failed to track cost for ${provider}:`, costError);
+        logger.error(`Cost error stack:`, costError.stack);
         // Don't fail the request if cost tracking fails
       }
       
