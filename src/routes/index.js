@@ -7,6 +7,7 @@ import { monitoringRoutes } from './monitoring.js';
 import authRoutes from './auth.js';
 import chatRoutes from './chat.js';
 import dashboardRoutes from './dashboard.js';
+import docsRoutes from './docs.js';
 
 export function setupRoutes(app, dependencies) {
   const { sessionManager, smartAIRouter, emailNotifier } = dependencies;
@@ -28,7 +29,7 @@ export function setupRoutes(app, dependencies) {
   // Mount API version
   app.use('/api/v1', apiV1);
   
-  // Root redirect
+  // Root redirect (must come before docs routes to avoid conflicts)
   app.get('/', (req, res) => {
     console.log('ROOT ENDPOINT DEBUG - Request received');
     res.json({
@@ -42,8 +43,13 @@ export function setupRoutes(app, dependencies) {
         mcp: '/api/v1/mcp',
         audio: '/api/v1/audio',
         monitoring: '/api/v1/monitoring',
-        dashboard: '/api/v1/dashboard'
+        dashboard: '/api/v1/dashboard',
+        docs: '/api-docs',
+        openapi: '/openapi.yaml'
       }
     });
   });
+  
+  // Mount documentation routes (after root redirect)
+  app.use('/', docsRoutes);
 }

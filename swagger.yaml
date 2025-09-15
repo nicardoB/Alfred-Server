@@ -1,0 +1,746 @@
+openapi: 3.0.3
+info:
+  title: Alfred Server API
+  description: |
+    Alfred Server provides a comprehensive AI-powered chat system with cost tracking, 
+    authentication, and multi-provider AI routing. This API enables secure access to 
+    AI services with detailed cost monitoring and user management.
+  version: 2.0.0
+  contact:
+    name: Alfred Server Development Team
+    email: support@alfred-ai.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://alfred-server-production.up.railway.app
+    description: Production server
+  - url: http://localhost:3000
+    description: Development server
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+paths:
+  /api/v1/health:
+    get:
+      tags:
+        - Health
+      summary: Get server health status
+      description: Returns the current health status of the server
+      security: []
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user and receive JWT token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/setup-owner:
+    post:
+      tags:
+        - Authentication
+      summary: Setup owner account
+      description: Create initial owner account (requires setup key)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetupOwnerRequest'
+      responses:
+        '201':
+          description: Owner account created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupOwnerResponse'
+        '400':
+          description: Invalid setup key or validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/profile:
+    get:
+      tags:
+        - Authentication
+      summary: Get user profile
+      description: Get current user's profile information
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/mcp/connect:
+    post:
+      tags:
+        - MCP (Model Context Protocol)
+      summary: Establish MCP session
+      description: Create a new MCP session for AI interactions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+      responses:
+        '200':
+          description: Session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPConnectResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/mcp/text:
+    post:
+      tags:
+        - MCP (Model Context Protocol)
+      summary: Send text command to AI
+      description: Send text command to AI system with automatic cost tracking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MCPTextRequest'
+      responses:
+        '200':
+          description: AI response generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPTextResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/monitoring/costs:
+    get:
+      tags:
+        - Cost Monitoring
+      summary: Get cost statistics
+      description: Get comprehensive cost statistics for all AI providers
+      responses:
+        '200':
+          description: Cost statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CostStatsResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/monitoring/costs/reset:
+    post:
+      tags:
+        - Cost Monitoring
+      summary: Reset cost statistics
+      description: Reset cost statistics for specific provider or all providers
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CostResetRequest'
+      responses:
+        '200':
+          description: Cost statistics reset successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CostResetResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/monitoring/costs/projection:
+    get:
+      tags:
+        - Cost Monitoring
+      summary: Get cost projections
+      description: Get cost projections for specified time period
+      parameters:
+        - name: days
+          in: query
+          description: Number of days for projection
+          required: false
+          schema:
+            type: integer
+            default: 30
+            minimum: 1
+            maximum: 365
+      responses:
+        '200':
+          description: Cost projection calculated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CostProjectionResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/chat/conversations:
+    post:
+      tags:
+        - Chat
+      summary: Create conversation
+      description: Create a new conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConversationRequest'
+      responses:
+        '201':
+          description: Conversation created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateConversationResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from login endpoint
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: API key for service-to-service authentication
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-09-15T22:23:40.034Z"
+        version:
+          type: string
+          example: "2.0.0-DEPLOYMENT-TEST"
+        uptime:
+          type: number
+          example: 93.948608453
+      required:
+        - status
+        - timestamp
+        - version
+        - uptime
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        password:
+          type: string
+          format: password
+          example: "password123"
+      required:
+        - email
+        - password
+
+    LoginResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Login successful"
+        token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        user:
+          $ref: '#/components/schemas/User'
+      required:
+        - message
+        - token
+        - user
+
+    SetupOwnerRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: "owner@example.com"
+        password:
+          type: string
+          format: password
+          example: "securePassword123!"
+        setupKey:
+          type: string
+          example: "setup-key-from-environment"
+      required:
+        - email
+        - password
+        - setupKey
+
+    SetupOwnerResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Owner account created successfully"
+        user:
+          $ref: '#/components/schemas/User'
+      required:
+        - message
+        - user
+
+    UserProfile:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+      required:
+        - user
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "user-id"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        role:
+          type: string
+          enum: [owner, family, friend, demo]
+          example: "owner"
+        permissions:
+          type: object
+          properties:
+            ai.chat:
+              type: boolean
+            monitoring.costs:
+              type: boolean
+          example:
+            ai.chat: true
+            monitoring.costs: true
+      required:
+        - id
+        - email
+        - role
+        - permissions
+
+    MCPConnectResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        sessionId:
+          type: string
+          format: uuid
+          example: "e7a04a84-1483-4be7-9a3e-5915459caf60"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-09-15T22:29:55.080Z"
+      required:
+        - success
+        - sessionId
+        - timestamp
+
+    MCPTextRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+          example: "e7a04a84-1483-4be7-9a3e-5915459caf60"
+        text:
+          type: string
+          example: "Hello! Please explain artificial intelligence."
+      required:
+        - sessionId
+        - text
+
+    MCPTextResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        sessionId:
+          type: string
+          format: uuid
+          example: "e7a04a84-1483-4be7-9a3e-5915459caf60"
+        requestId:
+          type: string
+          format: uuid
+          example: "55444988-73ff-4e3b-96c7-8c98340dbd34"
+        content:
+          type: string
+          example: "AI response content..."
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.9
+        provider:
+          type: string
+          enum: [openai, claude, copilot, ollama]
+          example: "openai"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-09-15T22:30:18.704Z"
+      required:
+        - success
+        - sessionId
+        - requestId
+        - content
+        - provider
+        - timestamp
+
+    CostStatsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            summary:
+              $ref: '#/components/schemas/CostSummary'
+            byProvider:
+              type: object
+              additionalProperties:
+                $ref: '#/components/schemas/ProviderCostStats'
+            timestamp:
+              type: string
+              format: date-time
+              example: "2025-09-15T22:30:34.073Z"
+          required:
+            - summary
+            - byProvider
+            - timestamp
+      required:
+        - success
+        - data
+
+    CostSummary:
+      type: object
+      properties:
+        totalCost:
+          type: number
+          format: double
+          example: 0.066603
+        totalRequests:
+          type: integer
+          example: 9
+        totalInputTokens:
+          type: integer
+          example: 10930
+        totalOutputTokens:
+          type: integer
+          example: 6173
+        totalTokens:
+          type: integer
+          example: 17103
+        avgCostPerToken:
+          type: number
+          format: double
+          example: 0.00000389
+        avgTokensPerRequest:
+          type: number
+          format: double
+          example: 1900
+        currency:
+          type: string
+          example: "USD"
+      required:
+        - totalCost
+        - totalRequests
+        - totalInputTokens
+        - totalOutputTokens
+        - totalTokens
+        - avgCostPerToken
+        - avgTokensPerRequest
+        - currency
+
+    ProviderCostStats:
+      type: object
+      properties:
+        requests:
+          type: integer
+          example: 3
+        inputTokens:
+          type: integer
+          example: 4500
+        outputTokens:
+          type: integer
+          example: 2400
+        totalTokens:
+          type: integer
+          example: 6900
+        totalCost:
+          type: number
+          format: double
+          example: 0.0495
+        lastReset:
+          type: string
+          format: date-time
+          example: "2025-09-15T22:27:12.926Z"
+        avgCostPerRequest:
+          type: number
+          format: double
+          example: 0.0165
+        avgCostPerToken:
+          type: number
+          format: double
+          example: 0.00000717
+        avgTokensPerRequest:
+          type: number
+          format: double
+          example: 2300
+      required:
+        - requests
+        - inputTokens
+        - outputTokens
+        - totalTokens
+        - totalCost
+        - lastReset
+        - avgCostPerRequest
+        - avgCostPerToken
+        - avgTokensPerRequest
+
+    CostResetRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum: [openai, claude, copilot, ollama]
+          example: "openai"
+          description: "Provider to reset. Omit to reset all providers."
+
+    CostResetResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Cost statistics reset for openai"
+      required:
+        - success
+        - message
+
+    CostProjectionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        projection:
+          type: object
+          properties:
+            dailyAverage:
+              type: number
+              format: double
+              example: 0.007
+            projectedCost:
+              type: number
+              format: double
+              example: 0.21
+            period:
+              type: integer
+              example: 30
+            currency:
+              type: string
+              example: "USD"
+          required:
+            - dailyAverage
+            - projectedCost
+            - period
+            - currency
+      required:
+        - success
+        - projection
+
+    CreateConversationRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          example: "My Conversation"
+        toolContext:
+          type: string
+          enum: [chat, poker, code, voice, french, workout]
+          example: "chat"
+      required:
+        - title
+        - toolContext
+
+    CreateConversationResponse:
+      type: object
+      properties:
+        conversation:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: "0293958e-cfec-4192-96dc-5fc4d90654ea"
+            title:
+              type: string
+              example: "My Conversation"
+            toolContext:
+              type: string
+              example: "chat"
+            totalCost:
+              type: string
+              example: "0.000000"
+            messageCount:
+              type: integer
+              example: 0
+            createdAt:
+              type: string
+              format: date-time
+              example: "2025-09-15T22:29:05.256Z"
+          required:
+            - id
+            - title
+            - toolContext
+            - totalCost
+            - messageCount
+            - createdAt
+      required:
+        - conversation
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "Unauthorized"
+        message:
+          type: string
+          example: "Invalid authentication credentials"
+      required:
+        - success
+        - error
+        - message
+
+tags:
+  - name: Health
+    description: Server health and status endpoints
+  - name: Authentication
+    description: User authentication and authorization
+  - name: MCP (Model Context Protocol)
+    description: AI interaction endpoints with automatic cost tracking
+  - name: Cost Monitoring
+    description: Cost tracking and analytics for AI usage
+  - name: Chat
+    description: Conversation management endpoints
