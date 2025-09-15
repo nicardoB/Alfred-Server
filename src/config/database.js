@@ -111,14 +111,30 @@ export async function setupDatabase() {
     await sequelize.authenticate();
     logger.info('Database connection established successfully');
     
-    // Sync models in dependency order - preserve existing data in PostgreSQL
-    await User.sync({ alter: true });
-    await Session.sync({ alter: true });
-    await ApiKey.sync({ alter: true });
-    await AuditLog.sync({ alter: true });
-    await Conversation.sync({ alter: true });
-    await Message.sync({ alter: true });
-    await CostUsage.sync({ alter: true });
+    // Sync models in dependency order
+    // Check if tables exist first
+    const tableExists = await sequelize.getQueryInterface().showAllTables();
+    const shouldForceSync = tableExists.length === 0 && process.env.FORCE_DB_SYNC === 'true';
+    
+    if (shouldForceSync) {
+      logger.info('Empty database detected, creating fresh schema...');
+      await User.sync({ force: true });
+      await Session.sync({ force: true });
+      await ApiKey.sync({ force: true });
+      await AuditLog.sync({ force: true });
+      await Conversation.sync({ force: true });
+      await Message.sync({ force: true });
+      await CostUsage.sync({ force: true });
+    } else {
+      // Safe sync - only create tables if they don't exist
+      await User.sync();
+      await Session.sync();
+      await ApiKey.sync();
+      await AuditLog.sync();
+      await Conversation.sync();
+      await Message.sync();
+      await CostUsage.sync();
+    }
     logger.info('Database models synchronized');
     
     return sequelize;
