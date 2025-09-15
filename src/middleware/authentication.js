@@ -22,7 +22,7 @@ function extractToken(req) {
                  (req.headers[AUTH_HEADER]?.startsWith('Bearer ') ? 
                   req.headers[AUTH_HEADER].substring(7) : null);
   
-  // Check for JWT token in Authorization Bearer header
+  // Check for JWT token
   const jwtToken = req.headers[AUTH_HEADER]?.startsWith('Bearer ') ? 
                    req.headers[AUTH_HEADER].substring(7) : null;
   
@@ -77,15 +77,7 @@ async function authenticateJWT(token) {
     const User = getUserModel();
     const Session = getSessionModel();
     
-    console.log('JWT Auth Debug:', { 
-      hasUser: !!User, 
-      hasSession: !!Session, 
-      userId: decoded.userId,
-      tokenPrefix: token.substring(0, 20) + '...'
-    });
-    
     if (!User || !Session) {
-      console.error('Models not initialized - User:', !!User, 'Session:', !!Session);
       throw new Error('Models not initialized');
     }
 
@@ -101,30 +93,7 @@ async function authenticateJWT(token) {
       }]
     });
 
-    console.log('Session lookup result:', { 
-      found: !!session, 
-      userId: decoded.userId,
-      isExpired: session ? session.isExpired() : 'N/A'
-    });
-
-    if (!session) {
-      console.log('No session found for token, creating JWT-only auth');
-      // If no session exists but JWT is valid, authenticate with user lookup
-      const user = await User.findOne({ where: { id: decoded.userId } });
-      if (!user) {
-        console.log('No user found for JWT userId:', decoded.userId);
-        return null;
-      }
-      
-      return {
-        user,
-        session: null,
-        authType: 'jwt'
-      };
-    }
-    
-    if (session.isExpired()) {
-      console.log('Session expired for user:', decoded.userId);
+    if (!session || session.isExpired()) {
       return null;
     }
 
@@ -138,11 +107,6 @@ async function authenticateJWT(token) {
     };
   } catch (error) {
     console.error('JWT authentication error:', error);
-    console.error('JWT Error Details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack?.split('\n')[0]
-    });
     return null;
   }
 }
@@ -166,10 +130,8 @@ export async function authenticate(req, res, next) {
     
     // Fall back to JWT authentication
     if (!authResult && jwtToken) {
-      console.log('Attempting JWT authentication with token:', jwtToken.substring(0, 20) + '...');
       authResult = await authenticateJWT(jwtToken);
       authMethod = 'jwt';
-      console.log('JWT authentication result:', !!authResult);
     }
 
     if (authResult) {
