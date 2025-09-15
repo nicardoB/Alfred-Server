@@ -55,6 +55,10 @@ export function defineUserModel(sequelize) {
     lockedUntil: {
       type: DataTypes.DATE,
       allowNull: true
+    },
+    isActive: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true
     }
   }, {
     tableName: 'users',
