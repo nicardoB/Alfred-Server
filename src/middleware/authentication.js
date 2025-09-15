@@ -107,7 +107,24 @@ async function authenticateJWT(token) {
       isExpired: session ? session.isExpired() : 'N/A'
     });
 
-    if (!session || session.isExpired()) {
+    if (!session) {
+      console.log('No session found for token, creating JWT-only auth');
+      // If no session exists but JWT is valid, authenticate with user lookup
+      const user = await User.findOne({ where: { id: decoded.userId } });
+      if (!user) {
+        console.log('No user found for JWT userId:', decoded.userId);
+        return null;
+      }
+      
+      return {
+        user,
+        session: null,
+        authType: 'jwt'
+      };
+    }
+    
+    if (session.isExpired()) {
+      console.log('Session expired for user:', decoded.userId);
       return null;
     }
 
