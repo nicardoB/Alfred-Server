@@ -3,6 +3,7 @@ import { authenticate, requireRole } from '../middleware/authentication.js';
 import { getConversationModel } from '../models/Conversation.js';
 import { getMessageModel } from '../models/Message.js';
 import { logger } from '../utils/logger.js';
+import { TOOL_CONTEXTS, isValidToolContext } from '../ai/enums.js';
 
 const router = express.Router();
 
@@ -46,12 +47,20 @@ router.get('/conversations', authenticate, async (req, res) => {
 // Create new conversation
 router.post('/conversations', authenticate, async (req, res) => {
   try {
-    const { title, toolContext = 'chat', context } = req.body;
+    const { title, toolContext = TOOL_CONTEXTS.CHAT, context } = req.body;
     const Conversation = getConversationModel();
+
+    // Validate tool context using enum
+    if (!isValidToolContext(toolContext)) {
+      return res.status(400).json({ 
+        error: `Invalid tool context: ${toolContext}`,
+        validContexts: Object.values(TOOL_CONTEXTS)
+      });
+    }
 
     // Validate tool context permission
     const hasPermission = req.user.permissions?.[toolContext] || 
-                         (toolContext === 'chat' && req.user.permissions['ai.chat']);
+                         (toolContext === TOOL_CONTEXTS.CHAT && req.user.permissions['ai.chat']);
     
     if (!hasPermission) {
       return res.status(403).json({ 
