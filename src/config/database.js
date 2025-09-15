@@ -55,14 +55,14 @@ export async function setupDatabase() {
       });
     }
     
-    // Initialize models
-    await initializeCostUsageModel(sequelize);
+    // Initialize models in dependency order
     await initializeUserModel(sequelize);
     await initializeSessionModel(sequelize);
     await initializeApiKeyModel(sequelize);
     await initializeAuditLogModel(sequelize);
     await initializeConversationModel(sequelize);
     await initializeMessageModel(sequelize);
+    await initializeCostUsageModel(sequelize);
     
     // Set up model associations
     const User = (await import('../models/User.js')).getUserModel();
