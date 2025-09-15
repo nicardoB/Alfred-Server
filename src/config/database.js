@@ -111,8 +111,14 @@ export async function setupDatabase() {
     await sequelize.authenticate();
     logger.info('Database connection established successfully');
     
-    // Sync models
-    await sequelize.sync({ alter: true });
+    // Sync models in dependency order
+    await User.sync({ alter: true });
+    await Session.sync({ alter: true });
+    await ApiKey.sync({ alter: true });
+    await AuditLog.sync({ alter: true });
+    await Conversation.sync({ alter: true });
+    await Message.sync({ alter: true });
+    await CostUsage.sync({ alter: true });
     logger.info('Database models synchronized');
     
     return sequelize;
