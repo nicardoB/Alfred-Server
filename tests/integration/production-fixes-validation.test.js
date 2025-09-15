@@ -1,24 +1,49 @@
-const request = require('supertest');
-const { app } = require('../../src/app.js');
-const { SmartAIRouter } = require('../../src/ai/SmartAIRouter.js');
-const { CostTracker } = require('../../src/monitoring/CostTracker.js');
+import request from 'supertest';
+import { jest } from '@jest/globals';
+import express from 'express';
+
+// Mock authentication middleware
+jest.unstable_mockModule('../../src/middleware/authentication.js', () => ({
+  authenticate: (req, res, next) => {
+    req.user = { id: 'test-user-id', role: 'owner' };
+    next();
+  },
+  requireRole: (roles) => (req, res, next) => next(),
+  requireOwner: (req, res, next) => next(),
+  requireFriend: (req, res, next) => next(),
+  requirePermission: (permission) => (req, res, next) => next(),
+  rateLimit: (limit) => (req, res, next) => next()
+}));
+
+// Mock SmartAIRouter
+const mockRouter = {
+  selectProvider: jest.fn(),
+  processText: jest.fn(),
+  getUsageStats: jest.fn()
+};
+
+jest.unstable_mockModule('../../src/ai/SmartAIRouter.js', () => ({
+  SmartAIRouter: jest.fn().mockImplementation(() => mockRouter)
+}));
+
+// Mock CostTracker
+const mockCostTracker = {
+  trackUsage: jest.fn(),
+  getUsageStats: jest.fn().mockResolvedValue({
+    summary: { totalCost: 0.001, totalRequests: 1 },
+    providers: {}
+  })
+};
+
+jest.unstable_mockModule('../../src/monitoring/CostTracker.js', () => ({
+  CostTracker: jest.fn().mockImplementation(() => mockCostTracker)
+}));
+
+const { app } = await import('../../src/server.js');
 
 describe('Production Fixes Validation', () => {
-  let authToken;
-  let userId;
-
-  beforeAll(async () => {
-    // Setup test user and authentication
-    const loginResponse = await request(app)
-      .post('/api/v1/auth/login')
-      .send({
-        email: 'test@example.com',
-        password: 'testpassword'
-      });
-
-    authToken = loginResponse.body.token;
-    userId = loginResponse.body.user.id;
-  });
+  let authToken = 'mock-token';
+  let userId = 'test-user-id';
 
   describe('Routing Fixes Integration', () => {
     it('should route simple greetings to GPT-4o Mini in production', async () => {

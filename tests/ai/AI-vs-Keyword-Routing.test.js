@@ -46,9 +46,9 @@ describe('AI-Driven vs Keyword-Based Routing Comparison', () => {
 
     edgeCases.forEach(({ query, expectedKeyword, expectedAI, description }) => {
       it(`should handle: ${description}`, async () => {
-        // Test keyword-based routing (current fallback)
-        const keywordResult = router.isCodeRelated(query) ? 'copilot' :
-                             router.isComplexReasoning(query) ? 'claude' : 'openai';
+        // Test AI-driven routing (pattern matching removed)
+        const aiRoutingDecision = await router.getAIRoutingDecision(query, {});
+        const keywordResult = aiRoutingDecision || 'openai';
         
         // Test AI-based routing (if available)
         let aiResult = 'GPT4_MINI'; // Default assumption
@@ -203,10 +203,10 @@ describe('AI-Driven vs Keyword-Based Routing Comparison', () => {
     it('should compare routing decision speed', async () => {
       const testQuery = "Can you help me understand machine learning concepts?";
       
-      // Keyword-based routing (instant)
-      const keywordStart = Date.now();
-      const keywordResult = router.isComplexReasoning(testQuery) ? 'claude' : 'openai';
-      const keywordTime = Date.now() - keywordStart;
+      // AI-driven routing (replaces keyword-based routing)
+      const routingStart = Date.now();
+      const routingResult = await router.getAIRoutingDecision(testQuery, {}) || 'openai';
+      const routingTime = Date.now() - routingStart;
 
       // AI-based routing (network call)
       let aiResult = 'GPT4_MINI';
@@ -221,12 +221,12 @@ describe('AI-Driven vs Keyword-Based Routing Comparison', () => {
 
       console.log(`Routing Performance Comparison:`);
       console.log(`Query: "${testQuery}"`);
-      console.log(`Keyword: ${keywordResult} (${keywordTime}ms)`);
+      console.log(`Routing: ${routingResult} (${routingTime}ms)`);
       console.log(`AI: ${aiResult} (${aiTime}ms)`);
-      console.log(`Trade-off: AI is ${aiTime > keywordTime ? 'slower' : 'faster'} but potentially more accurate`);
+      console.log(`Trade-off: AI routing provides intelligent decisions vs simple fallbacks`);
 
       // Both should return valid routes
-      expect(['claude', 'openai', 'copilot']).toContain(keywordResult);
+      expect(['claude', 'openai', 'copilot', 'ollama']).toContain(routingResult);
       expect(['LOCAL', 'GPT4_MINI', 'CLAUDE_SONNET', 'COPILOT']).toContain(aiResult);
     });
   });

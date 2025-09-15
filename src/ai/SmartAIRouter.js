@@ -5,66 +5,77 @@ import { GitHubCopilotProvider } from './providers/GitHubCopilotProvider.js';
 import { OllamaProvider } from './providers/OllamaProvider.js';
 import { GPTRoutingProvider } from './providers/GPTRoutingProvider.js';
 import { getCostUsageModel } from '../models/CostUsage.js';
+import { 
+  PROVIDERS, 
+  TOOL_CONTEXTS, 
+  AI_DECISIONS, 
+  USER_ROLES,
+  TOOL_DEFAULTS,
+  AI_DECISION_TO_PROVIDER,
+  isValidProvider,
+  isValidToolContext,
+  isValidUserRole
+} from './enums.js';
 
 /**
  * Unified Smart AI Router - Intelligently routes requests to the best AI provider
  * Based on tool context, task complexity, user role, and cost constraints
  */
 export class SmartAIRouter {
-  constructor() {
-    this.providers = {
-      ollama: new OllamaProvider(), // Free local model - PRIMARY ROUTER
-      claude: new ClaudeProvider(),
-      openai: new OpenAIProvider(),
-      copilot: new GitHubCopilotProvider()
+  constructor(providers = null, costUsage = null) {
+    this.providers = providers || {
+      [PROVIDERS.OLLAMA]: new OllamaProvider(), 
+      [PROVIDERS.CLAUDE]: new ClaudeProvider(),
+      [PROVIDERS.OPENAI]: new OpenAIProvider(),
+      [PROVIDERS.COPILOT]: new GitHubCopilotProvider(),
+      [PROVIDERS.GPT_ROUTING]: new GPTRoutingProvider()
     };
     
     // AI-driven routing providers
     this.routingProviders = {
       gpt: new GPTRoutingProvider(), // GPT-4o Mini for smart routing decisions
-      ollama: this.providers.ollama  // Ollama can also make routing decisions
+      ollama: this.providers[PROVIDERS.OLLAMA]  // Ollama can also make routing decisions
     };
 
     this.activeRequests = new Map();
     this.routingStats = {
-      ollama: 0,
-      claude: 0,
-      'claude-haiku': 0,
-      openai: 0,
-      copilot: 0
+      [PROVIDERS.CLAUDE]: 0,
+      [PROVIDERS.CLAUDE_HAIKU]: 0,
+      [PROVIDERS.OPENAI]: 0,
+      [PROVIDERS.COPILOT]: 0,
+      [PROVIDERS.OLLAMA]: 0
     };
 
     // Tool-specific routing configurations
     this.toolConfigs = {
-      chat: {
-        defaultProvider: 'openai', // GPT-4o Mini as reliable default
-        fallbackProvider: 'openai', // GPT-4o Mini as fallback
-        costOptimizedProvider: 'ollama', // Ollama when available
-        maxCostPerRequest: { owner: 1.0, family: 0.1, friend: 0.02, demo: 0.01 }
+      [TOOL_CONTEXTS.CHAT]: {
+        defaultProvider: PROVIDERS.CLAUDE,
+        costOptimizedProvider: PROVIDERS.OPENAI, // GPT-4o Mini is cost-effective
+        maxCostPerRequest: { [USER_ROLES.OWNER]: 1.0, [USER_ROLES.FAMILY]: 0.2, [USER_ROLES.FRIEND]: 0.05, [USER_ROLES.DEMO]: 0 }
       },
-      poker: {
-        defaultProvider: 'claude', // Poker analysis requires sophisticated reasoning
-        costOptimizedProvider: 'claude-haiku',
-        maxCostPerRequest: { owner: 2.0, family: 0, friend: 0, demo: 0 } // Owner-only
+      [TOOL_CONTEXTS.POKER]: {
+        defaultProvider: PROVIDERS.CLAUDE, // Best for poker analysis
+        costOptimizedProvider: PROVIDERS.CLAUDE_HAIKU,
+        maxCostPerRequest: { [USER_ROLES.OWNER]: 0.5, [USER_ROLES.FAMILY]: 0.1, [USER_ROLES.FRIEND]: 0.02, [USER_ROLES.DEMO]: 0 }
       },
-      code: {
-        defaultProvider: 'copilot', // GitHub Copilot for code
-        fallbackProvider: 'claude',
-        maxCostPerRequest: { owner: 1.5, family: 0, friend: 0, demo: 0 } // Owner-only
+      [TOOL_CONTEXTS.CODE]: {
+        defaultProvider: PROVIDERS.COPILOT, // GitHub Copilot excels at code
+        fallbackProvider: PROVIDERS.CLAUDE,
+        maxCostPerRequest: { [USER_ROLES.OWNER]: 0.8, [USER_ROLES.FAMILY]: 0.15, [USER_ROLES.FRIEND]: 0.03, [USER_ROLES.DEMO]: 0 }
       },
-      voice: {
-        defaultProvider: 'claude-haiku', // Fast responses for voice
-        transcriptionProvider: 'openai', // Whisper for transcription
-        maxCostPerRequest: { owner: 0.5, family: 0.05, friend: 0.01, demo: 0.005 }
+      [TOOL_CONTEXTS.VOICE]: {
+        defaultProvider: PROVIDERS.CLAUDE_HAIKU, // Fast responses for voice
+        transcriptionProvider: PROVIDERS.OPENAI, // Whisper for transcription
+        maxCostPerRequest: { [USER_ROLES.OWNER]: 0.3, [USER_ROLES.FAMILY]: 0.05, [USER_ROLES.FRIEND]: 0.01, [USER_ROLES.DEMO]: 0 }
       },
-      french: {
-        defaultProvider: 'claude', // Language learning needs good reasoning
-        costOptimizedProvider: 'claude-haiku',
-        maxCostPerRequest: { owner: 0.8, family: 0.1, friend: 0.02, demo: 0 }
+      [TOOL_CONTEXTS.FRENCH]: {
+        defaultProvider: PROVIDERS.CLAUDE, // Language learning needs good reasoning
+        costOptimizedProvider: PROVIDERS.CLAUDE_HAIKU,
+        maxCostPerRequest: { [USER_ROLES.OWNER]: 0.8, [USER_ROLES.FAMILY]: 0.1, [USER_ROLES.FRIEND]: 0.02, [USER_ROLES.DEMO]: 0 }
       },
-      workout: {
-        defaultProvider: 'claude-haiku', // Simple coaching responses
-        maxCostPerRequest: { owner: 0.3, family: 0.05, friend: 0.01, demo: 0 }
+      [TOOL_CONTEXTS.WORKOUT]: {
+        defaultProvider: PROVIDERS.CLAUDE_HAIKU, // Simple coaching responses
+        maxCostPerRequest: { [USER_ROLES.OWNER]: 0.3, [USER_ROLES.FAMILY]: 0.05, [USER_ROLES.FRIEND]: 0.01, [USER_ROLES.DEMO]: 0 }
       }
     };
   }
@@ -228,11 +239,19 @@ export class SmartAIRouter {
    * Unified provider selection based on tool context, user role, and cost constraints
    */
   async selectProvider(text, metadata = {}) {
-    const { toolContext = 'chat', user, estimatedCost = 0 } = metadata;
-    const userRole = user?.role || 'demo';
+    const { toolContext = TOOL_CONTEXTS.CHAT, user, estimatedCost = 0 } = metadata;
+    const userRole = user?.role || USER_ROLES.DEMO;
+    
+    // Validate inputs
+    if (!isValidToolContext(toolContext)) {
+      logger.warn(`Invalid tool context: ${toolContext}, defaulting to chat`);
+    }
+    if (!isValidUserRole(userRole)) {
+      logger.warn(`Invalid user role: ${userRole}, defaulting to demo`);
+    }
     
     // Get tool configuration
-    const toolConfig = this.toolConfigs[toolContext] || this.toolConfigs.chat;
+    const toolConfig = this.toolConfigs[toolContext] || this.toolConfigs[TOOL_CONTEXTS.CHAT];
     
     // Check if user has permission for this tool
     if (!this.hasToolPermission(userRole, toolContext)) {
@@ -243,10 +262,6 @@ export class SmartAIRouter {
     const maxCost = toolConfig.maxCostPerRequest[userRole] || 0;
     if (estimatedCost > maxCost) {
       logger.warn(`Request cost ${estimatedCost} exceeds limit ${maxCost} for ${userRole} in ${toolContext}`);
-      // Use cost-optimized provider if available
-      if (toolConfig.costOptimizedProvider) {
-        return toolConfig.costOptimizedProvider;
-      }
       throw new Error(`Request exceeds cost limit for ${userRole} role`);
     }
     
@@ -259,57 +274,119 @@ export class SmartAIRouter {
    */
   async routeByTool(toolContext, text, metadata = {}) {
     const textLower = text.toLowerCase();
-    const toolConfig = this.toolConfigs[toolContext];
+    const toolConfig = this.toolConfigs[toolContext] || this.toolConfigs[TOOL_CONTEXTS.CHAT];
     
     switch (toolContext) {
-      case 'chat':
+      case TOOL_CONTEXTS.CHAT:
         return await this.routeChat(textLower, metadata, toolConfig);
       
-      case 'poker':
+      case TOOL_CONTEXTS.POKER:
         return this.routePoker(textLower, metadata, toolConfig);
       
-      case 'code':
+      case TOOL_CONTEXTS.CODE:
         return this.routeCode(textLower, metadata, toolConfig);
       
-      case 'voice':
+      case TOOL_CONTEXTS.VOICE:
         return this.routeVoice(textLower, metadata, toolConfig);
       
-      case 'french':
+      case TOOL_CONTEXTS.FRENCH:
         return this.routeFrench(textLower, metadata, toolConfig);
       
-      case 'workout':
+      case TOOL_CONTEXTS.WORKOUT:
         return this.routeWorkout(textLower, metadata, toolConfig);
       
       default:
-        logger.warn(`Unknown tool context: ${toolContext}, using chat routing`);
-        return await this.routeChat(textLower, metadata, this.toolConfigs.chat);
+        logger.warn(`Unknown tool context: ${toolContext}, defaulting to chat`);
+        return await this.routeChat(textLower, metadata, this.toolConfigs[TOOL_CONTEXTS.CHAT]);
     }
   }
 
   /**
-   * Chat tool routing - general conversation with free-first approach
+   * Chat tool routing - AI-driven routing with intelligent provider selection
    */
   async routeChat(text, metadata, config) {
-    // Try AI-driven routing first (smarter than hardcoded keywords)
+    const chatConfig = this.toolConfigs[TOOL_CONTEXTS.CHAT];
+    
+    // Use AI routing to decide best provider (OLLAMA can route to itself if suitable)
     const aiRoutingDecision = await this.getAIRoutingDecision(text, metadata);
     if (aiRoutingDecision) {
-      return aiRoutingDecision;
+      return await this.executeWithFallback(aiRoutingDecision, metadata);
     }
     
-    // Fallback to keyword-based routing if AI routing fails
-    if (this.isCodeRelated(text)) {
-      return this.routeCode(text, metadata, this.toolConfigs.code);
+    // Final fallback: cost-optimized provider
+    return await this.executeWithFallback(chatConfig.costOptimizedProvider, metadata);
+  }
+
+
+  /**
+   * Execute provider selection with fallback chain
+   */
+  async executeWithFallback(primaryProvider, metadata = {}) {
+    const fallbackChains = {
+      [PROVIDERS.COPILOT]: [PROVIDERS.CLAUDE, PROVIDERS.OPENAI],
+      [PROVIDERS.CLAUDE]: [PROVIDERS.OPENAI, PROVIDERS.CLAUDE_HAIKU],
+      [PROVIDERS.OLLAMA]: [PROVIDERS.OPENAI, PROVIDERS.CLAUDE_HAIKU],
+      [PROVIDERS.OPENAI]: [PROVIDERS.CLAUDE_HAIKU],
+      [PROVIDERS.CLAUDE_HAIKU]: [PROVIDERS.OPENAI]
+    };
+
+    // Try primary provider first
+    if (await this.isProviderAvailable(primaryProvider)) {
+      return primaryProvider;
     }
-    
-    if (this.isComplexReasoning(text)) {
-      return 'claude';
+
+    // Try fallback chain
+    const fallbacks = fallbackChains[primaryProvider] || [PROVIDERS.OPENAI];
+    for (const fallbackProvider of fallbacks) {
+      if (await this.isProviderAvailable(fallbackProvider)) {
+        // Log fallback usage for user notification
+        this.logFallbackUsage(primaryProvider, fallbackProvider, metadata);
+        return fallbackProvider;
+      }
     }
-    
-    if (this.isSimpleQuery(text)) {
-      return 'openai';
+
+    // If all providers fail, throw error
+    throw new Error(`No available providers. Primary: ${primaryProvider}, Fallbacks: ${fallbacks.join(', ')}`);
+  }
+
+  /**
+   * Check if provider is available
+   */
+  async isProviderAvailable(provider) {
+    try {
+      const providerInstance = this.providers[provider];
+      if (!providerInstance) {
+        return false;
+      }
+      
+      // Check if provider has isAvailable method
+      if (typeof providerInstance.isAvailable === 'function') {
+        return await providerInstance.isAvailable();
+      }
+      
+      // If no availability check, assume available
+      return true;
+    } catch (error) {
+      logger.warn(`Provider availability check failed for ${provider}:`, error.message);
+      return false;
     }
+  }
+
+  /**
+   * Log fallback usage for user notifications
+   */
+  logFallbackUsage(primaryProvider, fallbackProvider, metadata) {
+    const sessionId = metadata.sessionId || 'unknown';
+    logger.info(`Provider fallback: ${primaryProvider} → ${fallbackProvider} for session ${sessionId}`);
     
-    return 'openai'; // Default to cheapest paid option
+    // Store fallback info for potential UI notification
+    if (metadata.onFallback && typeof metadata.onFallback === 'function') {
+      metadata.onFallback({
+        primary: primaryProvider,
+        fallback: fallbackProvider,
+        message: '✨ Using alternative model for best response'
+      });
+    }
   }
 
   /**
@@ -323,9 +400,9 @@ export class SmartAIRouter {
     };
 
     // Try Ollama first (free routing)
-    if (this.providers.ollama && await this.providers.ollama.isAvailable()) {
+    if (this.providers[PROVIDERS.OLLAMA] && await this.providers[PROVIDERS.OLLAMA].isAvailable()) {
       try {
-        const decision = await this.providers.ollama.makeRoutingDecision(text, userContext);
+        const decision = await this.providers[PROVIDERS.OLLAMA].makeRoutingDecision(text, userContext);
         return this.mapRoutingDecision(decision);
       } catch (error) {
         logger.warn('Ollama routing failed:', error);
@@ -348,30 +425,19 @@ export class SmartAIRouter {
    * Map AI routing decisions to provider names
    */
   mapRoutingDecision(decision) {
-    const mapping = {
-      'LOCAL': 'ollama',
-      'GPT4_MINI': 'openai', 
-      'CLAUDE_SONNET': 'claude',
-      'COPILOT': 'copilot'
-    };
-    return mapping[decision] || 'openai';
+    const provider = AI_DECISION_TO_PROVIDER[decision];
+    if (!provider) {
+      logger.warn(`Unknown AI decision: ${decision}, defaulting to OpenAI`);
+      return PROVIDERS.OPENAI;
+    }
+    return provider;
   }
 
   /**
-   * Poker tool routing - hand analysis and strategy
+   * Poker tool routing - defaults to Claude for poker analysis
    */
   routePoker(text, metadata, config) {
-    // Simple compliance checks → Claude Haiku
-    if (this.isPokerCompliance(text)) {
-      return config.costOptimizedProvider;
-    }
-    
-    // Complex analysis → Claude Sonnet
-    if (this.isPokerAnalysis(text)) {
-      return config.defaultProvider;
-    }
-    
-    // Default to main provider for poker
+    // Default to Claude Sonnet for poker analysis
     return config.defaultProvider;
   }
 
@@ -380,12 +446,12 @@ export class SmartAIRouter {
    */
   routeCode(text, metadata, config) {
     // Always prefer GitHub Copilot for code
-    if (this.providers.copilot && typeof this.providers.copilot.isAvailable === 'function' && this.providers.copilot.isAvailable()) {
-      return 'copilot';
+    if (this.providers[PROVIDERS.COPILOT] && typeof this.providers[PROVIDERS.COPILOT].isAvailable === 'function' && this.providers[PROVIDERS.COPILOT].isAvailable()) {
+      return PROVIDERS.COPILOT;
     }
     
     // Fallback to Claude for code analysis
-    return 'claude';
+    return PROVIDERS.CLAUDE;
   }
 
   /**
@@ -402,16 +468,11 @@ export class SmartAIRouter {
   }
 
   /**
-   * French tutor routing - language learning
+   * French tool routing - language learning assistance
    */
   routeFrench(text, metadata, config) {
-    // Complex grammar explanations → Claude Sonnet
-    if (this.isComplexLanguageTask(text)) {
-      return config.defaultProvider;
-    }
-    
-    // Simple translations, corrections → Claude Haiku
-    return config.costOptimizedProvider;
+    // Default to Claude Sonnet for French language tasks
+    return config.defaultProvider;
   }
 
   /**
@@ -427,10 +488,10 @@ export class SmartAIRouter {
    */
   hasToolPermission(userRole, toolContext) {
     const permissions = {
-      owner: ['chat', 'poker', 'code', 'voice', 'french', 'workout'],
-      family: ['chat', 'voice', 'french', 'workout'],
-      friend: ['chat'],
-      demo: ['chat']
+      [USER_ROLES.OWNER]: [TOOL_CONTEXTS.CHAT, TOOL_CONTEXTS.POKER, TOOL_CONTEXTS.CODE, TOOL_CONTEXTS.VOICE, TOOL_CONTEXTS.FRENCH, TOOL_CONTEXTS.WORKOUT],
+      [USER_ROLES.FAMILY]: [TOOL_CONTEXTS.CHAT, TOOL_CONTEXTS.VOICE, TOOL_CONTEXTS.FRENCH, TOOL_CONTEXTS.WORKOUT],
+      [USER_ROLES.FRIEND]: [TOOL_CONTEXTS.CHAT],
+      [USER_ROLES.DEMO]: [TOOL_CONTEXTS.CHAT] // Allow demo users basic chat access
     };
     
     return permissions[userRole]?.includes(toolContext) || false;
@@ -546,96 +607,8 @@ export class SmartAIRouter {
     }
   }
 
-  /**
-   * Determine if query is code-related
-   */
-  isCodeRelated(text) {
-    const codeKeywords = [
-      'function', 'class', 'variable', 'bug', 'debug',
-      'programming', 'algorithm', 'syntax', 'compile', 'error',
-      'javascript', 'python', 'java', 'kotlin', 'react', 'node'
-    ];
-    
-    // Only match if it's clearly about programming, not general "how to code"
-    return codeKeywords.some(keyword => text.toLowerCase().includes(keyword)) && 
-           !text.toLowerCase().includes('how to code');
-  }
 
-  /**
-   * Determine if query requires complex reasoning
-   */
-  isComplexReasoning(text) {
-    const complexKeywords = [
-      'analyze', 'explain', 'compare', 'evaluate', 'strategy',
-      'plan', 'architecture', 'design', 'research', 'complex'
-    ];
-    
-    return complexKeywords.some(keyword => text.toLowerCase().includes(keyword)) || text.length > 300;
-  }
 
-  /**
-   * Determine if query is complex language learning task
-   */
-  isComplexLanguageTask(text) {
-    const complexLanguageKeywords = [
-      'grammar', 'conjugation', 'subjunctive', 'explain why',
-      'difference between', 'when to use', 'rule', 'exception'
-    ];
-    
-    return complexLanguageKeywords.some(keyword => text.includes(keyword));
-  }
-
-  /**
-   * Determine if query is simple/quick
-   */
-  isSimpleQuery(text) {
-    const simpleKeywords = [
-      'hello', 'hi', 'hey', 'what is', 'how to', 'define', 'quick', 'simple', 'basic'
-    ];
-    
-    // Short messages or simple greetings should use cheap model
-    return simpleKeywords.some(keyword => text.toLowerCase().includes(keyword)) || text.length < 50;
-  }
-
-  /**
-   * Determine if query is poker analysis (complex)
-   */
-  isPokerAnalysis(text) {
-    const analysisKeywords = [
-      'analyze', 'analysis', 'strategy', 'decision', 'optimal', 'ev',
-      'expected value', 'range', 'equity', 'pot odds', 'implied odds',
-      'bluff', 'value bet', 'position', 'aggression', 'tight', 'loose',
-      'opponent', 'betting line', 'review', 'calculate', 'postflop'
-    ];
-    
-    return analysisKeywords.some(keyword => text.includes(keyword));
-  }
-
-  /**
-   * Determine if query is poker-related at all
-   */
-  isPokerRelated(text) {
-    const pokerKeywords = [
-      'poker', 'hand', 'cards', 'bet', 'fold', 'call', 'raise', 'bluff',
-      'gto', 'solver', 'equity', 'pot odds', 'preflop', 'flop', 'turn', 'river',
-      'villain', 'hero', 'position', 'stack', 'tournament', 'cash game'
-    ];
-    
-    return pokerKeywords.some(keyword => text.includes(keyword));
-  }
-
-  /**
-   * Determine if query is poker compliance (simple)
-   */
-  isPokerCompliance(text) {
-    const complianceKeywords = [
-      'gto', 'compliance', 'check', 'verify', 'validate', 'framework',
-      'solver', 'according to', 'is this', 'correct play', 'verification',
-      'audit', 'recommendation'
-    ];
-    
-    return complianceKeywords.some(keyword => text.includes(keyword));
-  }
 
   /**
    * Transcribe audio chunks to text

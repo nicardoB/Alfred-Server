@@ -177,6 +177,54 @@
 
 ---
 
+## 🤖 AI Routing Architecture (Updated 2025-01-15)
+
+### Smart AI Router Strategy
+**Two-Stage Routing System:**
+1. **Initial Chat Handler** → OLLAMA (free, local) with GPT fallback
+2. **Smart Routing Decision** → Specialized providers based on query analysis
+
+### Provider Capabilities & Use Cases
+| Provider | Cost | Speed | Quality | Availability | Best For |
+|----------|------|-------|---------|--------------|----------|
+| OLLAMA | Free | Fast | Fair | Local-dependent | Basic facts, simple Q&A |
+| CLAUDE_HAIKU | Low | Fast | Good | Cloud-reliable | Quick analysis, compliance checks |
+| CLAUDE_SONNET | High | Medium | Excellent | Cloud-reliable | Complex reasoning, deep analysis |
+| OPENAI/GPT | Medium | Medium | Excellent | Very reliable | Balanced general use, transcription |
+| COPILOT | Medium | Fast | Excellent | Cloud-reliable | Code generation, debugging |
+
+### Routing Decision Matrix
+```
+OLLAMA (or GPT fallback) analyzes and routes:
+├── "Coding question" → COPILOT
+├── "Complex reasoning/analysis" → CLAUDE_SONNET
+├── "Simple/factual queries" → OLLAMA/GPT (handle locally)
+├── "Language tasks" → CLAUDE_SONNET
+├── "Quick/speed-critical" → CLAUDE_HAIKU  
+├── "Voice/transcription" → OPENAI
+├── "Cost-sensitive bulk operations" → CLAUDE_HAIKU
+└── "Default/general queries" → OPENAI (balanced)
+```
+
+### Fallback Chain Strategy
+```
+Primary → Secondary → Tertiary → Error + User Notification
+COPILOT → CLAUDE_SONNET → GPT → "Service unavailable"
+CLAUDE_SONNET → GPT → CLAUDE_HAIKU → "Service unavailable"  
+OLLAMA → GPT → CLAUDE_HAIKU → "Service unavailable"
+```
+
+**User Notifications:** Subtle fallback indicators like "✨ *Using alternative model for best response*"
+
+### Implementation Tasks
+- [ ] **Update SmartAIRouter routing logic** - Implement OLLAMA-first with GPT fallback
+- [ ] **Add fallback chain system** - Implement provider availability checks and fallbacks
+- [ ] **Add user fallback notifications** - Subtle UI indicators when fallbacks occur
+- [ ] **Update routing tests** - Align tests with new routing architecture
+- [ ] **Add provider availability monitoring** - Track and log provider uptime/failures
+
+---
+
 ## 🔧 Technical Debt & Improvements
 
 ### Code Quality

@@ -57,24 +57,24 @@ describe('SmartAIRouter Production Fixes', () => {
       jest.restoreAllMocks();
     });
 
-    it('should fallback to keyword detection for complex queries', async () => {
+    it('should fallback to cost-optimized provider when AI routing fails', async () => {
       const result = await router.routeChat('analyze this complex data', {}, router.toolConfigs.chat);
-      expect(result).toBe('claude'); // Should use isComplexReasoning fallback
+      expect(result).toBe('openai'); // Should use cost-optimized fallback
     });
 
-    it('should fallback to keyword detection for code queries', async () => {
+    it('should fallback to cost-optimized provider for all queries when AI routing unavailable', async () => {
       const result = await router.routeChat('debug this javascript function', {}, router.toolConfigs.chat);
-      expect(result).toBe('claude'); // Code queries route to routeCode, which returns claude
+      expect(result).toBe('openai'); // Should use cost-optimized fallback
     });
 
     it('should fallback to OpenAI for simple queries', async () => {
       const result = await router.routeChat('hello there', {}, router.toolConfigs.chat);
-      expect(result).toBe('openai'); // Should use isSimpleQuery fallback
+      expect(result).toBe('openai'); // Should use cost-optimized fallback
     });
 
-    it('should default to OpenAI when no patterns match', async () => {
+    it('should default to OpenAI when no routing decision available', async () => {
       const result = await router.routeChat('random query', {}, router.toolConfigs.chat);
-      expect(result).toBe('openai'); // Should use final default
+      expect(result).toBe('openai'); // Should use cost-optimized fallback
     });
   });
 
