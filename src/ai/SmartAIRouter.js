@@ -24,17 +24,17 @@ import {
 export class SmartAIRouter {
   constructor(providers = null, costUsage = null) {
     this.providers = providers || {
-      [PROVIDERS.OLLAMA]: new OllamaProvider(), 
+      ...(process.env.OLLAMA_ENABLED !== 'false' ? { [PROVIDERS.OLLAMA]: new OllamaProvider() } : {}),
       [PROVIDERS.CLAUDE]: new ClaudeProvider(),
       [PROVIDERS.OPENAI]: new OpenAIProvider(),
       [PROVIDERS.COPILOT]: new GitHubCopilotProvider(),
-      [PROVIDERS.GPT_ROUTING]: new GPTRoutingProvider()
+      [PROVIDERS.CLAUDE_HAIKU]: new ClaudeProvider('claude-3-haiku-20240307')
     };
     
     // AI-driven routing providers
     this.routingProviders = {
       gpt: new GPTRoutingProvider(), // GPT-4o Mini for smart routing decisions
-      ollama: this.providers[PROVIDERS.OLLAMA]  // Ollama can also make routing decisions
+      ...(this.providers[PROVIDERS.OLLAMA] ? { ollama: this.providers[PROVIDERS.OLLAMA] } : {})
     };
 
     this.activeRequests = new Map();
