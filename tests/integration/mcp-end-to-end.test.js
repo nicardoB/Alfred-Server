@@ -14,6 +14,87 @@ jest.unstable_mockModule('../../src/middleware/authentication.js', () => ({
   rateLimit: (limit) => (req, res, next) => next()
 }));
 
+// Mock AI providers for integration tests
+jest.unstable_mockModule('../../src/ai/providers/OpenAIProvider.js', () => ({
+  OpenAIProvider: class MockOpenAIProvider {
+    constructor() {
+      this.name = 'openai';
+    }
+    async processText(text, context) {
+      return {
+        content: `OpenAI response to: ${text}`,
+        confidence: 0.9,
+        provider: 'openai'
+      };
+    }
+    isAvailable() { return true; }
+  }
+}));
+
+jest.unstable_mockModule('../../src/ai/providers/ClaudeProvider.js', () => ({
+  ClaudeProvider: class MockClaudeProvider {
+    constructor() {
+      this.name = 'claude';
+    }
+    async processText(text, context) {
+      return {
+        content: `Claude response to: ${text}`,
+        confidence: 0.95,
+        provider: 'claude'
+      };
+    }
+    isAvailable() { return true; }
+  }
+}));
+
+jest.unstable_mockModule('../../src/ai/providers/OllamaProvider.js', () => ({
+  OllamaProvider: class MockOllamaProvider {
+    constructor() {
+      this.name = 'ollama';
+    }
+    async processText(text, context) {
+      return {
+        content: `Ollama response to: ${text}`,
+        confidence: 0.8,
+        provider: 'ollama'
+      };
+    }
+    isAvailable() { return true; }
+  }
+}));
+
+jest.unstable_mockModule('../../src/ai/providers/GitHubCopilotProvider.js', () => ({
+  GitHubCopilotProvider: class MockGitHubCopilotProvider {
+    constructor() {
+      this.name = 'copilot';
+    }
+    async processText(text, context) {
+      return {
+        content: `Copilot response to: ${text}`,
+        confidence: 0.85,
+        provider: 'copilot'
+      };
+    }
+    isAvailable() { return true; }
+  }
+}));
+
+jest.unstable_mockModule('../../src/ai/providers/GPTRoutingProvider.js', () => ({
+  GPTRoutingProvider: class MockGPTRoutingProvider {
+    constructor() {
+      this.name = 'gpt-routing';
+    }
+    async processText(text, context) {
+      return {
+        content: `GPT Routing response to: ${text}`,
+        confidence: 0.9,
+        provider: 'gpt-routing'
+      };
+    }
+    isAvailable() { return true; }
+  }
+}));
+
 const { app } = await import('../../src/server.js');
 
 describe('MCP End-to-End Integration Tests', () => {

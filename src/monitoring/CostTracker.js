@@ -173,28 +173,55 @@ export class CostTracker {
         };
       });
       
-      // Populate with actual data
+      // Populate with actual data and calculate totals
+      let totalInputTokens = 0;
+      let totalOutputTokens = 0;
+      
       allUsage.forEach(usage => {
         const cost = parseFloat(usage.totalCost);
+        const inputTokens = usage.inputTokens || 0;
+        const outputTokens = usage.outputTokens || 0;
+        const totalTokens = inputTokens + outputTokens;
+        
         providers[usage.provider] = {
           requests: usage.requests,
-          inputTokens: usage.inputTokens,
-          outputTokens: usage.outputTokens,
+          inputTokens,
+          outputTokens,
+          totalTokens,
           totalCost: parseFloat(cost.toFixed(4)),
           lastReset: usage.lastReset.toISOString(),
           avgCostPerRequest: usage.requests > 0 
             ? parseFloat((cost / usage.requests).toFixed(4))
+            : 0,
+          avgCostPerToken: totalTokens > 0 
+            ? parseFloat((cost / totalTokens).toFixed(8))
+            : 0,
+          avgTokensPerRequest: usage.requests > 0 
+            ? Math.round(totalTokens / usage.requests)
             : 0
         };
         
         totalCost += cost;
         totalRequests += usage.requests;
+        totalInputTokens += inputTokens;
+        totalOutputTokens += outputTokens;
       });
 
+      const totalTokens = totalInputTokens + totalOutputTokens;
+      
       return {
         summary: {
           totalCost: parseFloat(totalCost.toFixed(4)),
           totalRequests,
+          totalInputTokens,
+          totalOutputTokens,
+          totalTokens,
+          avgCostPerToken: totalTokens > 0 
+            ? parseFloat((totalCost / totalTokens).toFixed(8))
+            : 0,
+          avgTokensPerRequest: totalRequests > 0 
+            ? Math.round(totalTokens / totalRequests)
+            : 0,
           currency: 'USD'
         },
         providers,
@@ -203,11 +230,20 @@ export class CostTracker {
     } catch (error) {
       logger.error('Failed to get usage stats:', error);
       return {
-        summary: { totalCost: 0, totalRequests: 0, currency: 'USD' },
+        summary: { 
+          totalCost: 0, 
+          totalRequests: 0, 
+          totalInputTokens: 0,
+          totalOutputTokens: 0,
+          totalTokens: 0,
+          avgCostPerToken: 0,
+          avgTokensPerRequest: 0,
+          currency: 'USD' 
+        },
         providers: {
-          claude: { requests: 0, inputTokens: 0, outputTokens: 0, totalCost: 0, lastReset: new Date().toISOString(), avgCostPerRequest: 0 },
-          openai: { requests: 0, inputTokens: 0, outputTokens: 0, totalCost: 0, lastReset: new Date().toISOString(), avgCostPerRequest: 0 },
-          copilot: { requests: 0, inputTokens: 0, outputTokens: 0, totalCost: 0, lastReset: new Date().toISOString(), avgCostPerRequest: 0 }
+          claude: { requests: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, totalCost: 0, lastReset: new Date().toISOString(), avgCostPerRequest: 0, avgCostPerToken: 0, avgTokensPerRequest: 0 },
+          openai: { requests: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, totalCost: 0, lastReset: new Date().toISOString(), avgCostPerRequest: 0, avgCostPerToken: 0, avgTokensPerRequest: 0 },
+          copilot: { requests: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, totalCost: 0, lastReset: new Date().toISOString(), avgCostPerRequest: 0, avgCostPerToken: 0, avgTokensPerRequest: 0 }
         },
         timestamp: new Date().toISOString()
       };

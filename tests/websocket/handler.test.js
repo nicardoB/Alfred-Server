@@ -67,10 +67,12 @@ jest.unstable_mockModule('../../src/middleware/socketAuth.js', () => ({
 }));
 
 jest.unstable_mockModule('../../src/models/Conversation.js', () => ({
+  initializeConversationModel: jest.fn(),
   getConversationModel: () => mockConversationModel
 }));
 
 jest.unstable_mockModule('../../src/models/Message.js', () => ({
+  initializeMessageModel: jest.fn(),
   getMessageModel: () => mockMessageModel
 }));
 
