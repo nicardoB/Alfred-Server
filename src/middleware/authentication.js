@@ -17,12 +17,10 @@ const AUTH_HEADER = 'authorization';
  * Extract authentication token from request headers
  */
 function extractToken(req) {
-  // Check for API key in headers
-  const apiKey = req.headers[API_KEY_HEADER] || 
-                 (req.headers[AUTH_HEADER]?.startsWith('Bearer ') ? 
-                  req.headers[AUTH_HEADER].substring(7) : null);
+  // Check for API key in x-api-key header
+  const apiKey = req.headers[API_KEY_HEADER];
   
-  // Check for JWT token
+  // Check for JWT token in Authorization Bearer header
   const jwtToken = req.headers[AUTH_HEADER]?.startsWith('Bearer ') ? 
                    req.headers[AUTH_HEADER].substring(7) : null;
   
