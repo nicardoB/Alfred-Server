@@ -247,16 +247,26 @@ router.post('/logout', authenticate, async (req, res) => {
  * Get current user profile
  * GET /api/v1/auth/profile
  */
-router.get('/profile', async (req, res) => {
-  console.log('PROFILE ROUTE DEBUG - Route hit, bypassing auth for test');
-  
-  // Bypass authentication temporarily to test route execution
-  res.json({
-    debug: 'Authentication bypassed for testing',
-    timestamp: new Date().toISOString(),
-    headers: req.headers,
-    url: req.url
-  });
+router.get('/profile', authenticate, async (req, res) => {
+  try {
+    res.json({
+      user: {
+        id: req.user.id,
+        email: req.user.email,
+        role: req.user.role,
+        permissions: req.user.permissions,
+        monthlyBudget: req.user.monthlyBudget,
+        lastLogin: req.user.lastLogin,
+        approved: req.user.approved
+      }
+    });
+  } catch (error) {
+    console.error('Profile error:', error);
+    res.status(500).json({
+      error: 'Profile fetch failed',
+      message: error.message
+    });
+  }
 });
 
 /**
