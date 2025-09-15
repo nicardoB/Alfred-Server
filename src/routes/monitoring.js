@@ -12,50 +12,9 @@ const __dirname = dirname(__filename);
 export function monitoringRoutes(emailNotifier = null) {
   const router = Router();
 
-  // Legacy authentication middleware for backward compatibility
-  const legacyAuthMiddleware = (req, res, next) => {
-    const apiKey = req.headers['x-api-key'];
-    
-    // Check for legacy MONITORING_API_KEY first
-    if (apiKey === process.env.MONITORING_API_KEY) {
-      return next();
-    }
-    
-    // If not legacy key, try new authentication system
-    authenticate(req, res, (err) => {
-      if (err) {
-        logger.warn('Unauthorized monitoring access attempt', {
-          ip: req.ip,
-          userAgent: req.headers['user-agent'],
-          endpoint: req.path
-        });
-        return res.status(401).json({ 
-          error: 'Unauthorized',
-          message: 'Authentication required for monitoring endpoints' 
-        });
-      }
-      
-      // Check if user has owner role
-      if (req.user && req.user.role === 'owner') {
-        return next();
-      }
-      
-      logger.warn('Insufficient permissions for monitoring access', {
-        userId: req.user?.id,
-        role: req.user?.role,
-        ip: req.ip,
-        endpoint: req.path
-      });
-      
-      return res.status(403).json({
-        error: 'Forbidden',
-        message: 'Owner role required for monitoring access'
-      });
-    });
-  };
-
-  // Apply authentication to all monitoring routes
-  router.use(legacyAuthMiddleware);
+  // Apply standard authentication to all monitoring routes
+  router.use(authenticate);
+  router.use(requireOwner);
 
   /**
    * GET /api/v1/monitoring/dashboard
