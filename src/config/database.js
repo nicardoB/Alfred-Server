@@ -32,11 +32,8 @@ export async function setupDatabase() {
         storage: './data/alfred_unified.db',
         logging: false
       });
-    } else {
+    } else if (process.env.DATABASE_URL) {
       // Production PostgreSQL
-      if (!process.env.DATABASE_URL) {
-        throw new Error('DATABASE_URL environment variable is required for unified Alfred MCP Server');
-      }
       
       sequelize = new Sequelize(process.env.DATABASE_URL, {
         dialect: 'postgres',
@@ -47,6 +44,14 @@ export async function setupDatabase() {
             rejectUnauthorized: false
           }
         }
+      });
+    } else {
+      // Fallback to SQLite for Railway deployment without DATABASE_URL
+      logger.warn('DATABASE_URL not found, using SQLite fallback');
+      sequelize = new Sequelize({
+        dialect: 'sqlite',
+        storage: './data/alfred_unified.db',
+        logging: false
       });
     }
     
