@@ -61,7 +61,17 @@ export class GitHubCopilotProvider {
       // Track usage for cost monitoring
       const inputTokens = data.usage?.prompt_tokens || costTracker.estimateTokens(text);
       const outputTokens = data.usage?.completion_tokens || costTracker.estimateTokens(content);
-      costTracker.trackUsage('copilot', inputTokens, outputTokens, this.model);
+      costTracker.trackUsage({
+        provider: 'copilot',
+        inputTokens,
+        outputTokens,
+        userId: context?.metadata?.userId,
+        toolContext: context?.metadata?.toolContext || 'chat',
+        model: this.model,
+        conversationId: context?.metadata?.conversationId,
+        messageId: context?.metadata?.messageId,
+        sessionId: context?.sessionId
+      });
       
       return {
         content,

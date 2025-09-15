@@ -67,10 +67,19 @@ export function mcpRoutes(sessionManager, smartAIRouter) {
 
   // Send text command - matches MCPClient.sendTextCommand()
   router.post('/text', async (req, res) => {
+    logger.info(`MCP DEBUG - /text route called with body:`, { 
+      hasSessionId: !!req.body?.sessionId, 
+      hasText: !!req.body?.text,
+      userId: req.user?.id 
+    });
+    
     try {
       const { sessionId, text, metadata = {} } = req.body;
       
+      logger.info(`MCP DEBUG - Extracted sessionId: ${sessionId}, text length: ${text?.length}`);
+      
       if (!sessionId || !text) {
+        logger.warn(`MCP DEBUG - Missing required fields: sessionId=${!!sessionId}, text=${!!text}`);
         return res.status(400).json({
           success: false,
           error: 'Session ID and text required'

@@ -239,16 +239,64 @@ export function monitoringRoutes(emailNotifier = null) {
   router.post('/costs/populate-test-data', async (req, res) => {
     try {
       // Generate realistic test usage data
-      await costTracker.trackUsage('claude', 1500, 800);  // ~$0.0165
-      await costTracker.trackUsage('claude', 2200, 1200); // ~$0.0246
-      await costTracker.trackUsage('claude', 800, 400);   // ~$0.0084
+      await costTracker.trackUsage({
+        provider: 'claude',
+        inputTokens: 1500,
+        outputTokens: 800,
+        userId: req.user.id,
+        toolContext: 'chat'
+      });
+      await costTracker.trackUsage({
+        provider: 'claude',
+        inputTokens: 2200,
+        outputTokens: 1200,
+        userId: req.user.id,
+        toolContext: 'chat'
+      });
+      await costTracker.trackUsage({
+        provider: 'claude',
+        inputTokens: 800,
+        outputTokens: 400,
+        userId: req.user.id,
+        toolContext: 'chat'
+      });
       
-      await costTracker.trackUsage('openai', 1200, 600);  // ~$0.0005 (gpt-4o-mini)
-      await costTracker.trackUsage('openai', 1800, 900);  // ~$0.0008
-      await costTracker.trackUsage('openai', 900, 450);   // ~$0.0004
+      await costTracker.trackUsage({
+        provider: 'openai',
+        inputTokens: 1200,
+        outputTokens: 600,
+        userId: req.user.id,
+        toolContext: 'chat'
+      });
+      await costTracker.trackUsage({
+        provider: 'openai',
+        inputTokens: 1800,
+        outputTokens: 900,
+        userId: req.user.id,
+        toolContext: 'chat'
+      });
+      await costTracker.trackUsage({
+        provider: 'openai',
+        inputTokens: 900,
+        outputTokens: 450,
+        userId: req.user.id,
+        toolContext: 'chat'
+      });
       
-      await costTracker.trackUsage('copilot', 1000, 500); // ~$0.0060
-      await costTracker.trackUsage('copilot', 1500, 750); // ~$0.0090
+      await costTracker.trackUsage({
+        provider: 'copilot',
+        inputTokens: 1000,
+        outputTokens: 500,
+        userId: req.user.id,
+        toolContext: 'chat'
+      });
+      await costTracker.trackUsage({
+        provider: 'copilot',
+        inputTokens: 1500,
+        outputTokens: 750,
+        userId: req.user.id,
+        toolContext: 'chat'
+      });
       
       const stats = await costTracker.getUsageStats();
       

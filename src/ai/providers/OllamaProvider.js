@@ -71,13 +71,17 @@ export class OllamaProvider {
       const estimatedTokens = Math.ceil(text.length / 4);
       const outputTokens = Math.ceil(data.response?.length / 4 || 0);
       
-      await costTracker.trackUsage(
-        'ollama', 
-        estimatedTokens, 
-        outputTokens, 
-        this.model, 
-        'chat'
-      );
+      await costTracker.trackUsage({
+        provider: 'ollama',
+        inputTokens: estimatedTokens,
+        outputTokens,
+        userId: context?.metadata?.userId,
+        toolContext: context?.metadata?.toolContext || 'chat',
+        model: this.model,
+        conversationId: context?.metadata?.conversationId,
+        messageId: context?.metadata?.messageId,
+        sessionId: context?.sessionId
+      });
 
       return {
         content: data.response,

@@ -114,7 +114,10 @@ export class SmartAIRouter {
           const { inputTokens = 0, outputTokens = 0 } = response.usage;
           logger.info(`DEBUG: Tracking usage for ${provider}: ${inputTokens} input, ${outputTokens} output tokens, userId: ${metadata.userId}`);
           
-          const trackingResult = await costTracker.trackUsage(provider, inputTokens, outputTokens, {
+          const trackingResult = await costTracker.trackUsage({
+            provider,
+            inputTokens,
+            outputTokens,
             userId: metadata.userId,
             toolContext: metadata.toolContext || 'chat',
             conversationId: metadata.conversationId,

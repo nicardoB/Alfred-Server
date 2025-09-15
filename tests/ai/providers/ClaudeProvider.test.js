@@ -134,7 +134,14 @@ describe('ClaudeProvider', () => {
         })
       });
       
-      expect(mockCostTracker.trackUsage).toHaveBeenCalledWith('claude', 12, 18, 'claude-3-5-sonnet-20241022', 'general');
+      expect(mockCostTracker.trackUsage).toHaveBeenCalledWith('claude', 12, 18, {
+        userId: undefined,
+        toolContext: 'chat',
+        model: 'claude-3-5-sonnet-20241022',
+        conversationId: undefined,
+        messageId: undefined,
+        sessionId: undefined
+      });
     });
 
     test('should handle API error response', async () => {

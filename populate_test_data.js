@@ -5,18 +5,66 @@ async function populateTestData() {
   console.log('Populating test cost data...');
   
   // Simulate Claude usage
-  costTracker.trackUsage('claude', 1500, 800);  // ~$0.0165
-  costTracker.trackUsage('claude', 2200, 1200); // ~$0.0246
-  costTracker.trackUsage('claude', 800, 400);   // ~$0.0084
+  costTracker.trackUsage({
+    provider: 'claude',
+    inputTokens: 1500,
+    outputTokens: 800,
+    userId: 'test-user-1',
+    toolContext: 'chat'
+  });
+  costTracker.trackUsage({
+    provider: 'claude',
+    inputTokens: 2200,
+    outputTokens: 1200,
+    userId: 'test-user-2',
+    toolContext: 'chat'
+  });
+  costTracker.trackUsage({
+    provider: 'claude',
+    inputTokens: 800,
+    outputTokens: 400,
+    userId: 'test-user-3',
+    toolContext: 'chat'
+  });
   
   // Simulate OpenAI usage
-  costTracker.trackUsage('openai', 1200, 600);  // ~$0.0005 (gpt-4o-mini)
-  costTracker.trackUsage('openai', 1800, 900);  // ~$0.0008
-  costTracker.trackUsage('openai', 900, 450);   // ~$0.0004
+  costTracker.trackUsage({
+    provider: 'openai',
+    inputTokens: 1200,
+    outputTokens: 600,
+    userId: 'test-user-4',
+    toolContext: 'chat'
+  });
+  costTracker.trackUsage({
+    provider: 'openai',
+    inputTokens: 1800,
+    outputTokens: 900,
+    userId: 'test-user-5',
+    toolContext: 'chat'
+  });
+  costTracker.trackUsage({
+    provider: 'openai',
+    inputTokens: 900,
+    outputTokens: 450,
+    userId: 'test-user-6',
+    toolContext: 'chat'
+  });
   
   // Simulate Copilot usage
-  costTracker.trackUsage('copilot', 1000, 500); // ~$0.0060
-  costTracker.trackUsage('copilot', 1500, 750); // ~$0.0090
+  costTracker.trackUsage({
+    provider: 'copilot',
+    inputTokens: 1000,
+    outputTokens: 500,
+    userId: 'test-user-7',
+    toolContext: 'chat'
+  });
+  costTracker.trackUsage({
+    provider: 'copilot',
+    inputTokens: 1500,
+    outputTokens: 750,
+    userId: 'test-user-8',
+    toolContext: 'chat'
+  });
   
   const stats = costTracker.getUsageStats();
   console.log('Test data populated:');

@@ -105,7 +105,14 @@ describe('CostTracker', () => {
     });
 
     test('should track usage for valid provider', async () => {
-      await costTracker.trackUsage('openai', 10, 5, 'gpt-4o-mini');
+      await costTracker.trackUsage({
+        provider: 'openai',
+        inputTokens: 10,
+        outputTokens: 5,
+        model: 'gpt-4o-mini',
+        userId: 'test-user',
+        toolContext: 'chat'
+      });
       
       expect(mockCostUsageModel.findOrCreate).toHaveBeenCalledWith({
         where: { provider: 'openai' },
@@ -121,21 +128,40 @@ describe('CostTracker', () => {
       });
     });
 
-    test('should handle poker-coach source with special tracking key', async () => {
-      await costTracker.trackUsage('claude', 10, 5, 'claude-3-5-sonnet-20241022', 'poker-coach');
+    test('should handle poker tool context tracking', async () => {
+      await costTracker.trackUsage({
+        provider: 'claude',
+        inputTokens: 10,
+        outputTokens: 5,
+        userId: 'test-user',
+        toolContext: 'poker',
+        model: 'claude-3-5-sonnet-20241022'
+      });
       
       expect(mockCostUsageModel.findOrCreate).toHaveBeenCalledWith({
-        where: { provider: 'claude-poker' },
+        where: { 
+          userId: 'test-user',
+          toolContext: 'poker',
+          provider: 'claude'
+        },
         defaults: expect.objectContaining({
-          provider: 'claude-poker'
+          userId: 'test-user',
+          toolContext: 'poker',
+          provider: 'claude'
         })
       });
     });
 
     test('should warn for unknown provider', async () => {
-      await costTracker.trackUsage('unknown-provider', 10, 5);
+      await costTracker.trackUsage({
+        provider: 'unknown-provider',
+        inputTokens: 10,
+        outputTokens: 5,
+        userId: 'test-user',
+        toolContext: 'chat'
+      });
       
-      expect(mockLogger.warn).toHaveBeenCalledWith('Unknown provider for cost tracking: unknown-provider');
+      expect(mockLogger.warn).toHaveBeenCalledWith('Unknown or missing provider for cost tracking: unknown-provider');
       expect(mockCostUsageModel.findOrCreate).not.toHaveBeenCalled();
     });
 
@@ -143,7 +169,13 @@ describe('CostTracker', () => {
       const error = new Error('Database error');
       mockCostUsageModel.findOrCreate.mockRejectedValue(error);
       
-      await costTracker.trackUsage('openai', 10, 5);
+      await costTracker.trackUsage({
+        provider: 'openai',
+        inputTokens: 10,
+        outputTokens: 5,
+        userId: 'test-user',
+        toolContext: 'chat'
+      });
       
       expect(mockLogger.error).toHaveBeenCalledWith('Failed to track usage:', error);
     });

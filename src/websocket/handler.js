@@ -156,7 +156,16 @@ export function setupWebSocket(io, dependencies) {
             // Track cost and emit cost update
             if (metadata?.usage) {
               const { inputTokens, outputTokens, provider, model } = metadata.usage;
-              await costTracker.trackUsage(provider, inputTokens, outputTokens, model, 'chat');
+              await costTracker.trackUsage({
+                provider,
+                inputTokens,
+                outputTokens,
+                userId: socket.user?.id,
+                toolContext: 'chat',
+                model,
+                conversationId: conversationId,
+                sessionId: socket.id
+              });
               
               // Get updated cost data and emit to user
               const costData = await costTracker.getUsageStats();
@@ -251,7 +260,16 @@ export function setupWebSocket(io, dependencies) {
             // Track cost and emit cost update for regeneration
             if (metadata?.usage) {
               const { inputTokens, outputTokens, provider, model } = metadata.usage;
-              await costTracker.trackUsage(provider, inputTokens, outputTokens, model, 'chat');
+              await costTracker.trackUsage({
+                provider,
+                inputTokens,
+                outputTokens,
+                userId: socket.user?.id,
+                toolContext: 'chat',
+                model,
+                conversationId: conversationId,
+                sessionId: socket.id
+              });
               
               // Get updated cost data and emit to user
               const costData = await costTracker.getUsageStats();

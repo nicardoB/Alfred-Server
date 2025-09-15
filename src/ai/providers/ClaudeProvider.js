@@ -53,13 +53,22 @@ export class ClaudeProvider {
       const data = await response.json();
       const content = data.content?.[0]?.text || 'No response from Claude';
       
-      // Track usage for cost monitoring with source information
+      // Track usage for cost monitoring
       const inputTokens = data.usage?.input_tokens || costTracker.estimateTokens(text);
       const outputTokens = data.usage?.output_tokens || costTracker.estimateTokens(content);
-      const source = context?.metadata?.source || 'general';
       const providerKey = this.model.includes('haiku') ? 'claude-haiku' : 'claude';
       
-      costTracker.trackUsage(providerKey, inputTokens, outputTokens, this.model, source);
+      costTracker.trackUsage({
+        provider: providerKey,
+        inputTokens,
+        outputTokens,
+        userId: context?.metadata?.userId,
+        toolContext: context?.metadata?.toolContext || 'chat',
+        model: this.model,
+        conversationId: context?.metadata?.conversationId,
+        messageId: context?.metadata?.messageId,
+        sessionId: context?.sessionId
+      });
       
       return {
         content,

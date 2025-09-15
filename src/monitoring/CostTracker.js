@@ -49,7 +49,9 @@ export class CostTracker {
    */
   async initializeDatabase() {
     try {
-      await initializeCostUsageModel();
+      const { getDatabase } = await import('../config/database.js');
+      const sequelize = await getDatabase();
+      await initializeCostUsageModel(sequelize);
       this.isInitialized = true;
       logger.info('Cost tracking database initialized');
     } catch (error) {
@@ -69,49 +71,93 @@ export class CostTracker {
   /**
    * Track usage for a provider request
    */
-  async trackUsage(provider, inputTokens, outputTokens, model = null, source = 'general') {
+  async trackUsage(metadata = {}) {
     await this.ensureInitialized();
     
-    if (!['claude', 'claude-haiku', 'openai', 'copilot'].includes(provider)) {
-      logger.warn(`Unknown provider for cost tracking: ${provider}`);
+    // Extract required fields from metadata
+    const {
+      provider,
+      inputTokens,
+      outputTokens,
+      userId,
+      toolContext = 'chat',
+      model = null,
+      conversationId = null,
+      messageId = null,
+      sessionId = null
+    } = metadata;
+
+    if (!provider || !['claude', 'openai', 'copilot', 'github'].includes(provider)) {
+      logger.warn(`Unknown or missing provider for cost tracking: ${provider}`);
+      return;
+    }
+
+    if (!inputTokens || !outputTokens) {
+      logger.warn('Cost tracking requires inputTokens and outputTokens');
+      return;
+    }
+
+    if (!userId) {
+      logger.warn('Cost tracking requires userId in metadata');
       return;
     }
 
     try {
       const CostUsage = getCostUsageModel();
       
-      // Create unique tracking key for provider + source combination
-      const trackingKey = source === 'poker-coach' ? `${provider}-poker` : provider;
+      if (!CostUsage) {
+        logger.error('CostUsage model not available');
+        return;
+      }
       
-      // Get or create provider record
-      let [usage] = await CostUsage.findOrCreate({
-        where: { provider: trackingKey },
-        defaults: {
-          provider: trackingKey,
-          requests: 0,
-          inputTokens: 0,
-          outputTokens: 0,
-          totalCost: 0,
-          model,
-          lastReset: new Date()
-        }
-      });
-
+      // Create tracking key based on user, tool context, and provider
+      const trackingKey = `${userId}-${toolContext}-${provider}`;
+      
       // Calculate cost based on provider and model
       const cost = this.calculateCost(provider, inputTokens, outputTokens, model);
       
-      // Update usage
-      await usage.update({
-        requests: usage.requests + 1,
-        inputTokens: usage.inputTokens + inputTokens,
-        outputTokens: usage.outputTokens + outputTokens,
-        totalCost: parseFloat(usage.totalCost) + cost,
-        model: model || usage.model
+      // Get or create usage record without transaction to avoid SQLite issues
+      let usage = await CostUsage.findOne({
+        where: { 
+          userId,
+          toolContext,
+          provider
+        }
       });
 
-      logger.info(`Cost tracking - ${trackingKey}: +$${cost.toFixed(4)} (Total: $${usage.totalCost.toFixed(4)})`);
+      if (usage) {
+        // Update existing record
+        await usage.update({
+          requests: usage.requests + 1,
+          inputTokens: usage.inputTokens + inputTokens,
+          outputTokens: usage.outputTokens + outputTokens,
+          totalCost: parseFloat(usage.totalCost) + cost,
+          model: model || usage.model,
+          conversationId: conversationId || usage.conversationId,
+          messageId: messageId || usage.messageId
+        });
+      } else {
+        // Create new record
+        usage = await CostUsage.create({
+          userId,
+          toolContext,
+          provider,
+          model,
+          conversationId,
+          messageId,
+          requests: 1,
+          inputTokens,
+          outputTokens,
+          totalCost: cost
+        });
+      }
+
+      logger.info(`Cost tracking - ${trackingKey}: +$${cost.toFixed(4)} (Total: $${parseFloat(usage.totalCost).toFixed(4)})`);
+      return usage;
     } catch (error) {
       logger.error('Failed to track usage:', error);
+      logger.error('Error details:', error.message);
+      return;
     }
   }
 
@@ -188,10 +234,10 @@ export class CostTracker {
           inputTokens,
           outputTokens,
           totalTokens,
-          totalCost: parseFloat(cost.toFixed(4)),
+          totalCost: parseFloat(cost.toFixed(6)), // Use 6 decimal places for small costs
           lastReset: usage.lastReset.toISOString(),
           avgCostPerRequest: usage.requests > 0 
-            ? parseFloat((cost / usage.requests).toFixed(4))
+            ? parseFloat((cost / usage.requests).toFixed(6))
             : 0,
           avgCostPerToken: totalTokens > 0 
             ? parseFloat((cost / totalTokens).toFixed(8))
@@ -211,7 +257,7 @@ export class CostTracker {
       
       return {
         summary: {
-          totalCost: parseFloat(totalCost.toFixed(4)),
+          totalCost: parseFloat(totalCost.toFixed(6)), // Use 6 decimal places for small costs
           totalRequests,
           totalInputTokens,
           totalOutputTokens,
@@ -224,7 +270,7 @@ export class CostTracker {
             : 0,
           currency: 'USD'
         },
-        providers,
+        byProvider: providers,
         timestamp: new Date().toISOString()
       };
     } catch (error) {
@@ -240,11 +286,7 @@ export class CostTracker {
           avgTokensPerRequest: 0,
           currency: 'USD' 
         },
-        providers: {
-          claude: { requests: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, totalCost: 0, lastReset: new Date().toISOString(), avgCostPerRequest: 0, avgCostPerToken: 0, avgTokensPerRequest: 0 },
-          openai: { requests: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, totalCost: 0, lastReset: new Date().toISOString(), avgCostPerRequest: 0, avgCostPerToken: 0, avgTokensPerRequest: 0 },
-          copilot: { requests: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, totalCost: 0, lastReset: new Date().toISOString(), avgCostPerRequest: 0, avgCostPerToken: 0, avgTokensPerRequest: 0 }
-        },
+        byProvider: {},
         timestamp: new Date().toISOString()
       };
     }
