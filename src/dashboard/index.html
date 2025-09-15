@@ -267,22 +267,15 @@
         
         async function loadDashboard() {
             try {
-                // Load cost statistics
-                const costResponse = await fetch(`${API_BASE}/api/v1/monitoring/costs`);
-                const costData = await costResponse.json();
+                // Load enhanced cost statistics from new dashboard API
+                const dashboardResponse = await fetch(`${API_BASE}/api/v1/dashboard/data`);
+                const dashboardData = await dashboardResponse.json();
                 
-                if (costData.success) {
-                    updateCostSummary(costData.data);
-                    updateProviderStats(costData.data.providers);
-                    updateCharts(costData.data.providers);
-                }
-                
-                // Load projections
-                const projectionResponse = await fetch(`${API_BASE}/api/v1/monitoring/costs/projection`);
-                const projectionData = await projectionResponse.json();
-                
-                if (projectionData.success) {
-                    updateProjections(projectionData.data);
+                if (dashboardData.success) {
+                    updateCostSummary(dashboardData.data.summary);
+                    updateProviderStats(dashboardData.data.providers);
+                    updateProjections(dashboardData.data.projections);
+                    updateCharts(dashboardData.data.providers);
                 }
                 
                 document.getElementById('lastUpdated').textContent = 
@@ -294,29 +287,42 @@
             }
         }
         
-        function updateCostSummary(data) {
-            document.getElementById('totalCost').textContent = `$${data.summary.totalCost.toFixed(4)}`;
-            document.getElementById('totalRequests').textContent = data.summary.totalRequests;
+        function updateCostSummary(summary) {
+            document.getElementById('totalCost').textContent = `$${summary.totalCost.toFixed(4)}`;
+            document.getElementById('totalRequests').textContent = summary.totalRequests;
+            document.getElementById('avgCostPerRequest').textContent = `$${summary.avgCostPerRequest.toFixed(4)}`;
             
-            const avgCost = data.summary.totalRequests > 0 
-                ? data.summary.totalCost / data.summary.totalRequests 
-                : 0;
-            document.getElementById('avgCostPerRequest').textContent = `$${avgCost.toFixed(4)}`;
+            // Add token analytics if elements exist
+            const totalTokensEl = document.getElementById('totalTokens');
+            if (totalTokensEl) {
+                totalTokensEl.textContent = summary.totalTokens || 0;
+            }
+            
+            const avgTokensEl = document.getElementById('avgTokensPerRequest');
+            if (avgTokensEl) {
+                avgTokensEl.textContent = Math.round(summary.avgTokensPerRequest || 0);
+            }
+            
+            const avgCostPerTokenEl = document.getElementById('avgCostPerToken');
+            if (avgCostPerTokenEl) {
+                avgCostPerTokenEl.textContent = `$${(summary.avgCostPerToken || 0).toFixed(6)}`;
+            }
         }
         
         function updateProviderStats(providers) {
             const container = document.getElementById('providerStats');
             container.innerHTML = '';
             
-            Object.entries(providers).forEach(([name, stats]) => {
+            providers.forEach(provider => {
                 const row = document.createElement('div');
                 row.className = 'provider-row';
                 row.innerHTML = `
                     <div>
-                        <div class="provider-name">${name.charAt(0).toUpperCase() + name.slice(1)}</div>
-                        <div class="provider-requests">${stats.requests} requests</div>
+                        <div class="provider-name">${provider.name.charAt(0).toUpperCase() + provider.name.slice(1)}</div>
+                        <div class="provider-requests">${provider.requests} requests • ${provider.totalTokens || 0} tokens</div>
+                        <div class="provider-efficiency">$${(provider.avgCostPerToken || 0).toFixed(6)}/token</div>
                     </div>
-                    <div class="provider-cost">$${stats.totalCost.toFixed(4)}</div>
+                    <div class="provider-cost">$${provider.totalCost.toFixed(4)}</div>
                 `;
                 container.appendChild(row);
             });
@@ -341,9 +347,9 @@
         }
         
         function updateCharts(providers) {
-            const providerNames = Object.keys(providers);
-            const requestCounts = providerNames.map(name => providers[name].requests);
-            const costs = providerNames.map(name => providers[name].totalCost);
+            const providerNames = providers.map(p => p.name);
+            const requestCounts = providers.map(p => p.requests);
+            const costs = providers.map(p => p.totalCost);
             
             // Provider usage chart
             const providerCtx = document.getElementById('providerChart').getContext('2d');

@@ -6,6 +6,7 @@ import { healthRoutes } from './health.js';
 import { monitoringRoutes } from './monitoring.js';
 import authRoutes from './auth.js';
 import chatRoutes from './chat.js';
+import dashboardRoutes from './dashboard.js';
 
 export function setupRoutes(app, dependencies) {
   const { sessionManager, smartAIRouter, emailNotifier } = dependencies;
@@ -21,6 +22,7 @@ export function setupRoutes(app, dependencies) {
   apiV1.use('/session', sessionRoutes(sessionManager));
   apiV1.use('/health', healthRoutes());
   apiV1.use('/monitoring', monitoringRoutes(emailNotifier));
+  apiV1.use('/dashboard', dashboardRoutes);
   
   // Mount API version
   app.use('/api/v1', apiV1);
@@ -37,7 +39,8 @@ export function setupRoutes(app, dependencies) {
         session: '/api/v1/session',
         mcp: '/api/v1/mcp',
         audio: '/api/v1/audio',
-        monitoring: '/api/v1/monitoring'
+        monitoring: '/api/v1/monitoring',
+        dashboard: '/api/v1/dashboard'
       }
     });
   });
