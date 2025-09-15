@@ -245,7 +245,10 @@ router.post('/logout', authenticate, async (req, res) => {
  * Get current user profile
  * GET /api/v1/auth/profile
  */
-router.get('/profile', authenticate, async (req, res) => {
+router.get('/profile', (req, res, next) => {
+  console.log('PROFILE ROUTE DEBUG - Route hit');
+  authenticate(req, res, next);
+}, async (req, res) => {
   try {
     res.json({
       user: {
