@@ -91,7 +91,11 @@ export function mcpRoutes(sessionManager, smartAIRouter) {
       const aiResult = await smartAIRouter.processTextCommand(text, {
         sessionId,
         requestId,
-        metadata
+        metadata: {
+          ...metadata,
+          userId: req.user?.id, // Add user ID for cost tracking
+          toolContext: metadata.toolContext || 'chat'
+        }
       });
 
       // Flatten the response structure for easier parsing - no nested objects

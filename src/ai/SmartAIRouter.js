@@ -5,6 +5,7 @@ import { GitHubCopilotProvider } from './providers/GitHubCopilotProvider.js';
 import { OllamaProvider } from './providers/OllamaProvider.js';
 import { GPTRoutingProvider } from './providers/GPTRoutingProvider.js';
 import { getCostUsageModel } from '../models/CostUsage.js';
+import { costTracker } from '../monitoring/CostTracker.js';
 import { 
   PROVIDERS, 
   TOOL_CONTEXTS, 
@@ -104,6 +105,25 @@ export class SmartAIRouter {
         ...context,
         provider
       });
+      
+      // Track usage for cost monitoring
+      try {
+        if (response.usage) {
+          const { inputTokens = 0, outputTokens = 0 } = response.usage;
+          await costTracker.trackUsage(provider, inputTokens, outputTokens, {
+            userId: metadata.userId,
+            toolContext: metadata.toolContext || 'chat',
+            conversationId: metadata.conversationId,
+            sessionId
+          });
+          logger.info(`Cost tracked for ${provider}: ${inputTokens} input, ${outputTokens} output tokens`);
+        } else {
+          logger.warn(`No usage data returned from ${provider} for cost tracking`);
+        }
+      } catch (costError) {
+        logger.error(`Failed to track cost for ${provider}:`, costError);
+        // Don't fail the request if cost tracking fails
+      }
       
       // Update stats
       this.routingStats[provider]++;

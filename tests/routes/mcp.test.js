@@ -141,7 +141,11 @@ describe('MCP Routes', () => {
         expect.objectContaining({
           sessionId: 'test-session-123',
           requestId: expect.any(String),
-          metadata: { source: 'voice' }
+          metadata: expect.objectContaining({
+            source: 'voice',
+            userId: 'test-user-id',
+            toolContext: 'chat'
+          })
         })
       );
     });

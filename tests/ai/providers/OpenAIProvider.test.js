@@ -114,7 +114,12 @@ describe('OpenAIProvider', () => {
       expect(result).toEqual({
         content: 'Hello! How can I help you?',
         confidence: 0.9,
-        provider: 'openai'
+        provider: 'openai',
+        usage: {
+          inputTokens: 10,
+          outputTokens: 15,
+          model: 'gpt-4o-mini'
+        }
       });
       
       expect(global.fetch).toHaveBeenCalledWith(provider.baseUrl, {
@@ -134,7 +139,8 @@ describe('OpenAIProvider', () => {
         })
       });
       
-      expect(mockCostTracker.trackUsage).toHaveBeenCalledWith('openai', 10, 15, 'gpt-4o-mini');
+      // Cost tracking is now handled by SmartAIRouter, not directly by providers
+      expect(mockCostTracker.trackUsage).not.toHaveBeenCalled();
     });
 
     test('should handle API error response', async () => {

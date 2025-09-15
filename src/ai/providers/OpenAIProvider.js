@@ -53,15 +53,19 @@ export class OpenAIProvider {
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content || 'No response from OpenAI';
       
-      // Track usage for cost monitoring
+      // Return usage data for SmartAIRouter to track
       const inputTokens = data.usage?.prompt_tokens || costTracker.estimateTokens(text);
       const outputTokens = data.usage?.completion_tokens || costTracker.estimateTokens(content);
-      costTracker.trackUsage('openai', inputTokens, outputTokens, this.model);
       
       return {
         content,
         confidence: 0.9,
-        provider: 'openai'
+        provider: 'openai',
+        usage: {
+          inputTokens,
+          outputTokens,
+          model: this.model
+        }
       };
     } catch (error) {
       logger.error(`OpenAI provider error: ${error.message}`);
