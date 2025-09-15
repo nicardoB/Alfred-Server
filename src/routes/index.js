@@ -31,7 +31,7 @@ export function setupRoutes(app, dependencies) {
   app.get('/', (req, res) => {
     res.json({
       name: 'Alfred MCP Server',
-      version: '1.0.0',
+      version: '1.0.1-DEPLOYMENT-FIX',
       endpoints: {
         auth: '/api/v1/auth',
         chat: '/api/v1/chat',
