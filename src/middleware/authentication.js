@@ -138,6 +138,11 @@ async function authenticateJWT(token) {
     };
   } catch (error) {
     console.error('JWT authentication error:', error);
+    console.error('JWT Error Details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack?.split('\n')[0]
+    });
     return null;
   }
 }
@@ -161,8 +166,10 @@ export async function authenticate(req, res, next) {
     
     // Fall back to JWT authentication
     if (!authResult && jwtToken) {
+      console.log('Attempting JWT authentication with token:', jwtToken.substring(0, 20) + '...');
       authResult = await authenticateJWT(jwtToken);
       authMethod = 'jwt';
+      console.log('JWT authentication result:', !!authResult);
     }
 
     if (authResult) {
