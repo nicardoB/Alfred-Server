@@ -30,9 +30,10 @@ export function setupRoutes(app, dependencies) {
   
   // Root redirect
   app.get('/', (req, res) => {
+    console.log('ROOT ENDPOINT DEBUG - Request received');
     res.json({
       name: 'Alfred MCP Server',
-      version: '1.0.1-DEPLOYMENT-FIX',
+      version: '1.0.2-DEBUG-TEST',
       endpoints: {
         auth: '/api/v1/auth',
         chat: '/api/v1/chat',
