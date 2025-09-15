@@ -25,8 +25,8 @@ export async function setupDatabase() {
         storage: ':memory:',
         logging: false
       });
-    } else if (process.env.NODE_ENV === 'development' && !process.env.DATABASE_URL) {
-      logger.warn('Using SQLite for development - PostgreSQL recommended for production');
+    } else if (!process.env.DATABASE_URL) {
+      logger.warn('DATABASE_URL not found, using SQLite fallback');
       sequelize = new Sequelize({
         dialect: 'sqlite',
         storage: './data/alfred_unified.db',
@@ -34,9 +34,7 @@ export async function setupDatabase() {
       });
     } else {
       // Production PostgreSQL
-      if (!process.env.DATABASE_URL) {
-        throw new Error('DATABASE_URL environment variable is required for unified Alfred MCP Server');
-      }
+      logger.info('Using PostgreSQL database from DATABASE_URL');
       
       sequelize = new Sequelize(process.env.DATABASE_URL, {
         dialect: 'postgres',
