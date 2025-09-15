@@ -77,7 +77,15 @@ async function authenticateJWT(token) {
     const User = getUserModel();
     const Session = getSessionModel();
     
+    console.log('JWT Auth Debug:', { 
+      hasUser: !!User, 
+      hasSession: !!Session, 
+      userId: decoded.userId,
+      tokenPrefix: token.substring(0, 20) + '...'
+    });
+    
     if (!User || !Session) {
+      console.error('Models not initialized - User:', !!User, 'Session:', !!Session);
       throw new Error('Models not initialized');
     }
 
@@ -91,6 +99,12 @@ async function authenticateJWT(token) {
         model: User,
         as: 'user'
       }]
+    });
+
+    console.log('Session lookup result:', { 
+      found: !!session, 
+      userId: decoded.userId,
+      isExpired: session ? session.isExpired() : 'N/A'
     });
 
     if (!session || session.isExpired()) {
