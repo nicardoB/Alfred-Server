@@ -14,7 +14,7 @@ export function defineSessionModel(sequelize) {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: 'users',
+        model: 'Users',
         key: 'id'
       }
     },
@@ -48,7 +48,7 @@ export function defineSessionModel(sequelize) {
       defaultValue: true
     }
   }, {
-    tableName: 'sessions',
+    tableName: 'Sessions',
     timestamps: true,
     indexes: [
       {

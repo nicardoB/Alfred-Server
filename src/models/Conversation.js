@@ -80,7 +80,7 @@ export async function initializeConversationModel(sequelize) {
         defaultValue: DataTypes.NOW
       }
     }, {
-      tableName: 'conversations',
+      tableName: 'Conversations',
       timestamps: true,
       indexes: [
         {

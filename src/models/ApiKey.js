@@ -15,7 +15,7 @@ export function defineApiKeyModel(sequelize) {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: 'users',
+        model: 'Users',
         key: 'id'
       }
     },
@@ -58,7 +58,7 @@ export function defineApiKeyModel(sequelize) {
       defaultValue: true
     }
   }, {
-    tableName: 'api_keys',
+    tableName: 'ApiKeys',
     timestamps: true,
     indexes: [
       {

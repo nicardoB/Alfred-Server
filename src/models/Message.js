@@ -107,7 +107,7 @@ export async function initializeMessageModel(sequelize) {
         defaultValue: DataTypes.NOW
       }
     }, {
-      tableName: 'messages',
+      tableName: 'Messages',
       timestamps: true,
       indexes: [
         {

@@ -81,7 +81,7 @@ export function defineCostUsageModel(sequelize) {
       defaultValue: DataTypes.NOW
     }
   }, {
-    tableName: 'cost_usage',
+    tableName: 'CostUsage',
     timestamps: true,
     indexes: [
       {

@@ -61,7 +61,7 @@ export function defineUserModel(sequelize) {
       defaultValue: true
     }
   }, {
-    tableName: 'users',
+    tableName: 'Users',
     timestamps: true,
     indexes: [
       {

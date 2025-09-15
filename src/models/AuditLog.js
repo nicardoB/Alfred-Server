@@ -14,7 +14,7 @@ export function defineAuditLogModel(sequelize) {
       type: DataTypes.UUID,
       allowNull: true,
       references: {
-        model: 'users',
+        model: 'Users',
         key: 'id'
       }
     },
@@ -79,7 +79,7 @@ export function defineAuditLogModel(sequelize) {
       allowNull: true
     }
   }, {
-    tableName: 'audit_logs',
+    tableName: 'AuditLogs',
     timestamps: true,
     indexes: [
       {
