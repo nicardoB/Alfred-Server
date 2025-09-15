@@ -15,6 +15,7 @@ export function setupRoutes(app, dependencies) {
   const apiV1 = Router();
   
   // Mount route modules
+  console.log('ROUTE REGISTRATION DEBUG - Mounting auth routes');
   apiV1.use('/auth', authRoutes);
   apiV1.use('/chat', chatRoutes);
   apiV1.use('/mcp', mcpRoutes(sessionManager, smartAIRouter));
