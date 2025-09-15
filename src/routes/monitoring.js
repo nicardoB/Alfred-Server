@@ -14,7 +14,7 @@ export function monitoringRoutes(emailNotifier = null) {
 
   // Legacy authentication middleware for backward compatibility
   const legacyAuthMiddleware = (req, res, next) => {
-    const apiKey = req.headers['x-api-key'] || req.headers['authorization'];
+    const apiKey = req.headers['x-api-key'];
     
     // Check for legacy MONITORING_API_KEY first
     if (apiKey === process.env.MONITORING_API_KEY) {
