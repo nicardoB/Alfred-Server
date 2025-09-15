@@ -73,14 +73,22 @@ async function authenticateApiKey(keyString) {
  */
 async function authenticateJWT(token) {
   try {
+    console.log('JWT DEBUG - Starting JWT validation');
+    console.log('JWT DEBUG - Token length:', token.length);
+    console.log('JWT DEBUG - JWT_SECRET present:', !!JWT_SECRET);
+    
     const decoded = jwt.verify(token, JWT_SECRET);
+    console.log('JWT DEBUG - Token decoded successfully:', { userId: decoded.userId, role: decoded.role });
+    
     const User = getUserModel();
     const Session = getSessionModel();
     
     if (!User || !Session) {
+      console.log('JWT DEBUG - Models not initialized');
       throw new Error('Models not initialized');
     }
 
+    console.log('JWT DEBUG - Looking for session with userId:', decoded.userId);
     const session = await Session.findOne({
       where: { 
         token,
@@ -93,7 +101,32 @@ async function authenticateJWT(token) {
       }]
     });
 
+    console.log('JWT DEBUG - Session found:', !!session);
+    if (session) {
+      console.log('JWT DEBUG - Session active:', !session.isExpired());
+      console.log('JWT DEBUG - Session user:', !!session.user);
+    }
+
     if (!session || session.isExpired()) {
+      console.log('JWT DEBUG - No valid session found, trying user fallback');
+      
+      // Fallback: authenticate via user lookup (for cases where session is missing)
+      const user = await User.findOne({
+        where: { 
+          id: decoded.userId,
+          isActive: true,
+          approved: true
+        }
+      });
+      
+      console.log('JWT DEBUG - User fallback found:', !!user);
+      if (user) {
+        return {
+          user,
+          authType: 'jwt_fallback'
+        };
+      }
+      
       return null;
     }
 
