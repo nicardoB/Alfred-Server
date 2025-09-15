@@ -6,6 +6,8 @@ import { getSessionModel } from '../models/Session.js';
 import { getApiKeyModel } from '../models/ApiKey.js';
 import { getAuditLogModel } from '../models/AuditLog.js';
 import { authenticate, requireOwner } from '../middleware/authentication.js';
+
+console.log('AUTH IMPORT DEBUG - authenticate function:', typeof authenticate);
 import { getRolePermissions, getRoleBudget, getRoleRateLimit } from '../config/permissions.js';
 
 const router = express.Router();
