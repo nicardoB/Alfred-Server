@@ -51,7 +51,7 @@ router.post('/conversations', authenticate, async (req, res) => {
 
     // Validate tool context permission
     const hasPermission = req.user.permissions?.[toolContext] || 
-                         (toolContext === 'chat' && req.user.permissions?.chat);
+                         (toolContext === 'chat' && req.user.permissions['ai.chat']);
     
     if (!hasPermission) {
       return res.status(403).json({ 
