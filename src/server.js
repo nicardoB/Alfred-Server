@@ -97,6 +97,9 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Make WebSocket server available globally for cost tracking
+global.io = io;
+
 // Start server only if not in test environment
 if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, () => {

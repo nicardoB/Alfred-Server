@@ -133,7 +133,17 @@ describe('GitHubCopilotProvider', () => {
         })
       });
       
-      expect(mockCostTracker.trackUsage).toHaveBeenCalledWith('copilot', 8, 12, 'gpt-4o-mini');
+      expect(mockCostTracker.trackUsage).toHaveBeenCalledWith({
+        provider: 'copilot',
+        inputTokens: 8,
+        outputTokens: 12,
+        userId: undefined,
+        toolContext: 'chat',
+        model: 'gpt-4o-mini',
+        conversationId: undefined,
+        messageId: undefined,
+        sessionId: undefined
+      });
     });
 
     test('should handle API error response', async () => {

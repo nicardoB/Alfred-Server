@@ -369,7 +369,10 @@ describe('End-to-End Cost Tracking Tests', () => {
       
       for (const user of users) {
         for (const provider of providers) {
-          await costTracker.trackUsage(provider, 100, 50, {
+          await costTracker.trackUsage({
+            provider,
+            inputTokens: 100,
+            outputTokens: 50,
             userId: user,
             toolContext: 'chat'
           });

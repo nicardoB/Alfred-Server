@@ -134,7 +134,10 @@ describe('ClaudeProvider', () => {
         })
       });
       
-      expect(mockCostTracker.trackUsage).toHaveBeenCalledWith('claude', 12, 18, {
+      expect(mockCostTracker.trackUsage).toHaveBeenCalledWith({
+        provider: 'claude',
+        inputTokens: 12,
+        outputTokens: 18,
         userId: undefined,
         toolContext: 'chat',
         model: 'claude-3-5-sonnet-20241022',

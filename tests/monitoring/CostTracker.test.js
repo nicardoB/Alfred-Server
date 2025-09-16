@@ -251,7 +251,7 @@ describe('CostTracker', () => {
       const stats = await costTracker.getUsageStats();
       
       expect(stats).toHaveProperty('summary');
-      expect(stats).toHaveProperty('providers');
+      expect(stats).toHaveProperty('byProvider');
       expect(stats).toHaveProperty('timestamp');
       expect(stats.summary.totalCost).toBe(3.5);
       expect(stats.summary.totalRequests).toBe(15);

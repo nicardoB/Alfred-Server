@@ -657,9 +657,27 @@ describe('Monitoring Routes', () => {
 
       // Verify all trackUsage calls were made
       expect(mockCostTracker.trackUsage).toHaveBeenCalledTimes(8);
-      expect(mockCostTracker.trackUsage).toHaveBeenCalledWith('claude', 1500, 800);
-      expect(mockCostTracker.trackUsage).toHaveBeenCalledWith('openai', 1200, 600);
-      expect(mockCostTracker.trackUsage).toHaveBeenCalledWith('copilot', 1000, 500);
+      expect(mockCostTracker.trackUsage).toHaveBeenCalledWith({
+        provider: 'claude',
+        inputTokens: 1500,
+        outputTokens: 800,
+        userId: expect.any(String),
+        toolContext: 'chat'
+      });
+      expect(mockCostTracker.trackUsage).toHaveBeenCalledWith({
+        provider: 'openai',
+        inputTokens: 1200,
+        outputTokens: 600,
+        userId: expect.any(String),
+        toolContext: 'chat'
+      });
+      expect(mockCostTracker.trackUsage).toHaveBeenCalledWith({
+        provider: 'copilot',
+        inputTokens: 1000,
+        outputTokens: 500,
+        userId: expect.any(String),
+        toolContext: 'chat'
+      });
     });
 
     test('should handle populate test data errors', async () => {

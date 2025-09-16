@@ -110,32 +110,27 @@ export class CostTracker {
         return;
       }
       
-      // Create tracking key based on user, tool context, and provider
-      const trackingKey = `${userId}-${toolContext}-${provider}`;
-      
-      // Calculate cost based on provider and model
       const cost = this.calculateCost(provider, inputTokens, outputTokens, model);
       
-      // Get or create usage record without transaction to avoid SQLite issues
+      // Create tracking key for aggregation
+      const trackingKey = `${provider}-${toolContext || 'default'}-${userId}`;
+      
+      // Find or create usage record
       let usage = await CostUsage.findOne({
         where: { 
           userId,
-          toolContext,
-          provider
+          provider,
+          toolContext: toolContext || 'default'
         }
       });
 
       if (usage) {
         // Update existing record
-        await usage.update({
-          requests: usage.requests + 1,
-          inputTokens: usage.inputTokens + inputTokens,
-          outputTokens: usage.outputTokens + outputTokens,
-          totalCost: parseFloat(usage.totalCost) + cost,
-          model: model || usage.model,
-          conversationId: conversationId || usage.conversationId,
-          messageId: messageId || usage.messageId
-        });
+        usage.requests += 1;
+        usage.inputTokens += inputTokens;
+        usage.outputTokens += outputTokens;
+        usage.totalCost = (parseFloat(usage.totalCost) + cost).toFixed(6);
+        await usage.save();
       } else {
         // Create new record
         usage = await CostUsage.create({
@@ -153,11 +148,49 @@ export class CostTracker {
       }
 
       logger.info(`Cost tracking - ${trackingKey}: +$${cost.toFixed(4)} (Total: $${parseFloat(usage.totalCost).toFixed(4)})`);
+      
+      // Emit real-time cost update via WebSocket if available
+      this.emitCostUpdate(userId, cost, usage);
+      
       return usage;
     } catch (error) {
       logger.error('Failed to track usage:', error);
       logger.error('Error details:', error.message);
       return;
+    }
+  }
+
+  /**
+   * Emit real-time cost update via WebSocket
+   */
+  emitCostUpdate(userId, newCost, usage) {
+    try {
+      // Get the WebSocket server instance if available
+      const io = global.io;
+      if (!io) {
+        logger.debug('WebSocket server not available for cost updates');
+        return;
+      }
+
+      // Get updated cost stats
+      this.getUsageStats().then(costData => {
+        const updateData = {
+          summary: costData.summary,
+          providers: costData.providers,
+          timestamp: new Date().toISOString(),
+          newCost,
+          provider: usage.provider,
+          userId
+        };
+
+        // Emit to user-specific room
+        io.to(`user-${userId}`).emit('cost-update', updateData);
+        logger.debug(`Emitted cost update to user-${userId}: +$${newCost.toFixed(4)}`);
+      }).catch(error => {
+        logger.error('Failed to emit cost update:', error);
+      });
+    } catch (error) {
+      logger.error('Error in emitCostUpdate:', error);
     }
   }
 
