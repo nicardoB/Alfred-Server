@@ -8,8 +8,10 @@ import { costTracker } from '../../monitoring/CostTracker.js';
 export class OllamaProvider {
   constructor() {
     this.name = 'ollama';
-    this.baseUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
-    this.model = process.env.OLLAMA_MODEL || 'llama3.1:8b';
+    // Support both env var names for base URL
+    this.baseUrl = process.env.OLLAMA_URL || process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+    // Default to the commonly available local model tag we pulled
+    this.model = process.env.OLLAMA_MODEL || 'llama3.1';
     this.isLocal = true;
     this.cost = 0; // Free!
     

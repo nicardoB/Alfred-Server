@@ -1,6 +1,6 @@
 # Alfred MCP Server - Development Tasks
 
-## 🎯 Current Phase: Cost Tracking Integration Complete ✅
+## 🎯 Current Phase: Local Development Setup & Testing ✅
 
 ### ✅ Completed Tasks
 
@@ -300,28 +300,111 @@ OLLAMA → GPT → CLAUDE_HAIKU → "Service unavailable"
 ---
 
 *Last Updated: 2025-09-16*
-*Status: Cost Tracking Integration Complete ✅ - Production Verified*
+*## Current Status: Cost Tracking Integration Complete 
 
-## 🎯 Recent Achievements (Cost Tracking Integration Complete)
+**Phase:** Production Deployment Complete  
+**Last Updated:** September 16, 2025  
+**Status:** All core features implemented, tested, and deployed
 
-### ✅ Completed: CostTracker API Refactor & Production Verification
-- **API Signature Update**: Refactored `trackUsage()` to accept unified metadata object
-- **All Providers Updated**: Claude, GitHub Copilot, Ollama, SmartAIRouter, WebSocket handler
-- **Database Integration**: CostUsage model with proper foreign key constraints
-- **Test Coverage**: 11/11 integration tests passing, comprehensive unit and E2E tests
-- **Production Deployment**: Successfully deployed to Railway
+### Recent Achievements (September 16, 2025)
+
+#### ✅ Cost Tracking Integration Complete
+- **CostTracker API Refactored**: Updated `trackUsage()` to accept unified metadata object
+- **Real-time WebSocket Updates**: Cost updates now emit live to frontend via WebSocket
+- **Frontend Cost Display Fixed**: Session vs Total cost clarity with color-coded thresholds
+- **API Documentation**: Professional Swagger/OpenAPI 3.0 spec with interactive UI
+- **Test Coverage**: Core functionality verified with integration tests passing
+- **Production Deployed**: Backend successfully deployed with verified health status
+- **Test Fixes Applied**: Updated all provider and E2E tests for new API signature
 - **Real-Money Verification**: Tested with actual OpenAI API calls, $0.066603 tracked accurately
 - **Legacy Code Removal**: All old trackUsage() calls updated throughout codebase
 
 ### 📊 Test Coverage Status
-- **Integration Tests**: 11/11 passing ✅
-- **Database Tests**: CostUsage model, foreign key constraints ✅  
+- **Integration Tests**: 11/11 passing 
 - **SmartAIRouter Tests**: Cost tracking integration ✅
 - **Unit Tests**: CostTracker class methods ✅
 - **E2E Tests**: End-to-end cost tracking workflows ✅
 - **Production Tests**: Real API calls with cost verification ✅
 
-### 🔄 Next Priority: API Documentation & User Onboarding
-- Generate comprehensive API documentation for cost tracking endpoints
-- Create user onboarding system for family/friend roles
-- Implement invitation system with secure signup links
+### 🔄 Current Priority: Local-First Development & Testing
+
+#### Phase 1: Local Development Setup (Week 1)
+- [x] **Local Alfred Server Setup** - Run server locally with SQLite database
+- [x] **Local Ollama Installation** - Install Ollama on Mac for free local AI
+- [x] **Local Integration Testing** - Test Alfred Server + Ollama integration locally
+- [x] **Local Chat Client Testing** - Test chat client with local backend
+- [x] **Comprehensive Documentation** - Create setup instructions for future deployments
+
+#### Phase 2: Production Deployment (Week 2)
+- [ ] **Deploy Alfred Server to Railway** - Production backend deployment
+- [ ] **Set up Cloud Ollama Instance** - Oracle Cloud or alternative cloud provider
+- [ ] **Production Integration Testing** - Test cloud backend + cloud Ollama
+- [ ] **Performance Validation** - Ensure production setup meets performance requirements
+
+#### Phase 3: User Onboarding & Scaling (Week 3+)
+- [ ] **User Onboarding System** - Family/friend role management
+- [ ] **Invitation System** - Secure signup links and email invitations
+- [ ] **Cost Monitoring Dashboard** - Real-time cost tracking and alerts
+- [ ] **Performance Optimization** - Scale Ollama based on usage patterns
+
+### 📋 Local Development Setup Instructions
+
+#### Quick Start (5 minutes)
+```bash
+# 1. Start Alfred Server locally
+cd /Users/nbhatia/Documents/Projects/Alfred-Server
+npm install
+NODE_ENV=development npm run setup
+npm start  # Runs on localhost:3001
+
+# 2. Install Ollama locally
+brew install ollama
+ollama serve  # Runs on localhost:11434
+ollama pull llama3.1:7b  # Download model
+
+# 3. Start Chat Client
+cd ../Alfred-Chat
+npm install
+npm run dev  # Runs on localhost:3000
+```
+
+#### Local Architecture
+```
+Your Mac:
+├── Alfred Server (localhost:3001) - SQLite database
+├── Chat Client (localhost:3000) - Next.js frontend
+├── Ollama (localhost:11434) - Local AI models
+└── All communication via localhost (no network complexity)
+```
+
+### 🚀 Production Deployment Instructions
+
+#### Railway Deployment
+```bash
+# Deploy to Railway
+railway login
+railway link [project-id]
+railway up
+
+# Set environment variables
+railway variables set NODE_ENV=production
+railway variables set DATABASE_URL=[postgres-url]
+```
+
+#### Oracle Cloud Ollama Setup
+```bash
+# SSH into Oracle instance
+ssh -i ~/.ssh/oracle_key ubuntu@[public-ip]
+
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
+sudo systemctl enable ollama
+sudo systemctl start ollama
+
+# Download models
+ollama pull llama3.1:7b
+ollama pull mistral:7b
+
+# Configure firewall
+sudo ufw allow 11434
+```
