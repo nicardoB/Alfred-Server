@@ -18,12 +18,8 @@ export class ClaudeProvider {
 
   async processText(text, context) {
     if (!this.apiKey) {
-      logger.warn('Claude API key not configured, using mock response');
-      return {
-        content: `Claude mock response to: ${text}`,
-        confidence: 0.9,
-        provider: this.name
-      };
+      logger.warn('Claude API key not configured');
+      throw new Error('Claude API key not configured');
     }
 
     try {

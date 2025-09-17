@@ -87,35 +87,97 @@ export class SmartAIRouter {
   async processTextCommand(text, context) {
     const { sessionId, requestId, metadata = {} } = context;
     
+    // Define fallback chain based on query type and available providers
+    const getFallbackChain = (primaryProvider) => {
+      const chains = {
+        // Code queries: Copilot → OpenAI → Ollama
+        [PROVIDERS.COPILOT]: [PROVIDERS.COPILOT, PROVIDERS.OPENAI, PROVIDERS.OLLAMA],
+        
+        // Complex reasoning: Claude → OpenAI → Ollama  
+        [PROVIDERS.CLAUDE]: [PROVIDERS.CLAUDE, PROVIDERS.OPENAI, PROVIDERS.OLLAMA],
+        
+        // Fast queries: Haiku → OpenAI → Ollama
+        [PROVIDERS.CLAUDE_HAIKU]: [PROVIDERS.CLAUDE_HAIKU, PROVIDERS.OPENAI, PROVIDERS.OLLAMA],
+        
+        // OpenAI queries: OpenAI → Ollama
+        [PROVIDERS.OPENAI]: [PROVIDERS.OPENAI, PROVIDERS.OLLAMA],
+        
+        // Ollama queries: Ollama only (already local)
+        [PROVIDERS.OLLAMA]: [PROVIDERS.OLLAMA]
+      };
+      
+      return chains[primaryProvider] || [primaryProvider, PROVIDERS.OPENAI, PROVIDERS.OLLAMA];
+    };
+    
     try {
       // Analyze request to determine best provider
-      const provider = await this.selectProvider(text, metadata);
-      logger.info(`Routing text command to ${provider} for session ${sessionId}`);
+      const primaryProvider = await this.selectProvider(text, metadata);
+      const fallbackChain = getFallbackChain(primaryProvider);
       
-      // Track active request
-      this.activeRequests.set(requestId, {
-        provider,
-        sessionId,
-        startTime: Date.now(),
-        type: 'text'
-      });
+      logger.info(`Primary provider: ${primaryProvider}, fallback chain: ${fallbackChain.join(' → ')}`);
       
-      // Process through selected provider
-      const response = await this.providers[provider].processText(text, {
-        ...context,
-        provider
-      });
+      let lastError = null;
+      let usedProvider = null;
+      let response = null;
+      
+      // Try each provider in the fallback chain
+      for (const provider of fallbackChain) {
+        // Skip if provider doesn't exist
+        if (!this.providers[provider]) {
+          logger.warn(`Provider ${provider} not available, skipping`);
+          continue;
+        }
+        
+        try {
+          logger.info(`Attempting ${provider} for session ${sessionId}`);
+          
+          // Track active request
+          this.activeRequests.set(requestId, {
+            provider,
+            sessionId,
+            startTime: Date.now(),
+            type: 'text'
+          });
+          
+          // Process through current provider
+          response = await this.providers[provider].processText(text, {
+            ...context,
+            provider
+          });
+          
+          usedProvider = provider;
+          logger.info(`Successfully processed with ${provider}`);
+          break;
+          
+        } catch (providerError) {
+          logger.warn(`Provider ${provider} failed: ${providerError.message}`);
+          lastError = providerError;
+          
+          // If this wasn't the primary choice, log the fallback
+          if (provider !== primaryProvider) {
+            logger.info(`Fell back from ${primaryProvider} to ${provider} due to: ${providerError.message}`);
+          }
+          
+          continue;
+        }
+      }
+      
+      // If all providers failed, throw the last error
+      if (!response || !usedProvider) {
+        logger.error(`All providers in chain failed. Last error: ${lastError?.message}`);
+        throw lastError || new Error('All AI providers unavailable');
+      }
       
       // Track usage for cost monitoring
       try {
-        logger.info(`DEBUG: Provider ${provider} response has usage:`, !!response.usage);
+        logger.info(`DEBUG: Provider ${usedProvider} response has usage:`, !!response.usage);
         logger.info(`DEBUG: Response keys:`, Object.keys(response));
         if (response.usage) {
           const { inputTokens = 0, outputTokens = 0 } = response.usage;
-          logger.info(`DEBUG: Tracking usage for ${provider}: ${inputTokens} input, ${outputTokens} output tokens, userId: ${metadata.userId}`);
+          logger.info(`DEBUG: Tracking usage for ${usedProvider}: ${inputTokens} input, ${outputTokens} output tokens, userId: ${metadata.userId}`);
           
           const trackingResult = await costTracker.trackUsage({
-            provider,
+            provider: usedProvider,
             inputTokens,
             outputTokens,
             userId: metadata.userId,
@@ -125,24 +187,24 @@ export class SmartAIRouter {
           });
           
           logger.info(`DEBUG: CostTracker result:`, trackingResult);
-          logger.info(`Cost tracked for ${provider}: ${inputTokens} input, ${outputTokens} output tokens`);
+          logger.info(`Cost tracked for ${usedProvider}: ${inputTokens} input, ${outputTokens} output tokens`);
         } else {
-          logger.warn(`No usage data returned from ${provider} for cost tracking. Response keys: ${Object.keys(response)}`);
+          logger.warn(`No usage data returned from ${usedProvider} for cost tracking. Response keys: ${Object.keys(response)}`);
         }
       } catch (costError) {
-        logger.error(`Failed to track cost for ${provider}:`, costError);
+        logger.error(`Failed to track cost for ${usedProvider}:`, costError);
         logger.error(`Cost error stack:`, costError.stack);
         // Don't fail the request if cost tracking fails
       }
       
       // Update stats
-      this.routingStats[provider]++;
+      this.routingStats[usedProvider]++;
       
       // Clean up tracking
       this.activeRequests.delete(requestId);
       
       return {
-        provider,
+        provider: usedProvider,
         response,
         confidence: response.confidence || 0.9,
         processingTimeMs: Date.now() - this.activeRequests.get(requestId)?.startTime || 0
